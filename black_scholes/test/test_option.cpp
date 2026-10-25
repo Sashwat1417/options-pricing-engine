@@ -8,6 +8,12 @@
 #include <string>
 #include <vector>
 
+using std::function;
+using std::invalid_argument;
+using std::numeric_limits;
+using std::string;
+using std::vector;
+
 namespace {
 
 using ope::OptionInputs;
@@ -16,29 +22,29 @@ using ope::OptionType;
 // Hull Ch 15 worked example.
 OptionInputs hull_example() { return {OptionType::Call, 42.0, 40.0, 0.5, 0.10, 0.20}; }
 
-std::string validation_error(const OptionInputs& in) {
+string validation_error(const OptionInputs& in) {
     try {
         ope::validate(in);
-    } catch (const std::invalid_argument& e) {
+    } catch (const invalid_argument& e) {
         return e.what();
     }
     return "";
 }
 
-::testing::AssertionResult rejected_for(const OptionInputs& in, const std::string& field) {
-    const std::string msg = validation_error(in);
+::testing::AssertionResult rejected_for(const OptionInputs& in, const string& field) {
+    const string msg = validation_error(in);
     if (msg.empty()) {
         return ::testing::AssertionFailure() << "accepted, expected rejection of " << field;
     }
-    if (msg.find(field) == std::string::npos) {
+    if (msg.find(field) == string::npos) {
         return ::testing::AssertionFailure()
                << "rejected, but the message doesn't name " << field << ": \"" << msg << "\"";
     }
     return ::testing::AssertionSuccess();
 }
 
-constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
-constexpr double kInf = std::numeric_limits<double>::infinity();
+constexpr double kNaN = numeric_limits<double>::quiet_NaN();
+constexpr double kInf = numeric_limits<double>::infinity();
 
 }  // namespace
 
@@ -100,10 +106,10 @@ TEST(Validate, RejectsNegativeVolatility) {
 
 TEST(Validate, RejectsNonFiniteInEveryField) {
     struct Field {
-        std::string name;
-        std::function<void(OptionInputs&, double)> set;
+        string name;
+        function<void(OptionInputs&, double)> set;
     };
-    const std::vector<Field> fields = {
+    const vector<Field> fields = {
         {"spot", [](OptionInputs& in, double v) { in.spot = v; }},
         {"strike", [](OptionInputs& in, double v) { in.strike = v; }},
         {"time_to_expiry", [](OptionInputs& in, double v) { in.time_to_expiry = v; }},

@@ -10,10 +10,10 @@ struct OptionInputs {
     double strike;          // K
     double time_to_expiry;  // T, in years
     double rate;            // r, continuously compounded
-    double volatility;      // sigma, annualised
+    double volatility;      // σ, annualised
 };
 
-// Throws std::invalid_argument. T = 0 and sigma = 0 are allowed.
+// Throws std::invalid_argument. T = 0 and σ = 0 are allowed.
 void validate(const OptionInputs& inputs);
 
 }  // namespace ope

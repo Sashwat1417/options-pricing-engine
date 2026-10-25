@@ -5,6 +5,9 @@
 #include <cmath>
 #include <limits>
 
+using std::isnan;
+using std::numeric_limits;
+
 namespace {
 
 using ope::norm_cdf;
@@ -66,7 +69,7 @@ TEST(NormCdf, StaysAccurateDeepInLeftTail) {
 }
 
 TEST(NormCdf, PropagatesNaN) {
-    EXPECT_TRUE(std::isnan(norm_cdf(std::numeric_limits<double>::quiet_NaN())));
+    EXPECT_TRUE(isnan(norm_cdf(numeric_limits<double>::quiet_NaN())));
 }
 
 TEST(NormPdf, MatchesReferenceValues) {
