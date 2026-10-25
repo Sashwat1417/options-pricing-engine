@@ -1,6 +1,7 @@
 # Layer 1: Black-Scholes pricer.
 
 add_library(ope_black_scholes
+    main/src/black_scholes.cpp
     main/src/option.cpp
     main/src/version.cpp
 )
@@ -19,6 +20,7 @@ ope_enable_sanitizers(ope_black_scholes)
 
 if(OPE_BUILD_TESTS)
     add_executable(black_scholes_tests
+        test/test_black_scholes.cpp
         test/test_normal.cpp
         test/test_option.cpp
         test/test_version.cpp
