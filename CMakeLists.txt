@@ -12,6 +12,7 @@ if(PROJECT_IS_TOP_LEVEL)
 endif()
 
 option(OPE_BUILD_TESTS "Build unit tests" ${PROJECT_IS_TOP_LEVEL})
+option(OPE_BUILD_CLI "Build the ope command-line tool" ${PROJECT_IS_TOP_LEVEL})
 option(OPE_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(OPE_ENABLE_SANITIZERS "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 
@@ -25,3 +26,8 @@ if(OPE_BUILD_TESTS)
 endif()
 
 add_subdirectory(black_scholes)  # Layer 1
+
+if(OPE_BUILD_CLI)
+    include(FetchCLI11)
+    add_subdirectory(cli)
+endif()
