@@ -1,0 +1,30 @@
+cmake_minimum_required(VERSION 3.25)
+
+project(options_pricing_engine
+    VERSION 0.1.0
+    DESCRIPTION "Options pricing engine: Black-Scholes, Monte Carlo, delta hedging"
+    LANGUAGES CXX
+)
+
+# Global defaults only when we are the top-level build, so the library
+# doesn't impose settings on a parent project that pulls it in.
+if(PROJECT_IS_TOP_LEVEL)
+    set(CMAKE_CXX_EXTENSIONS OFF)
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+endif()
+
+option(OPE_BUILD_TESTS "Build unit tests" ${PROJECT_IS_TOP_LEVEL})
+option(OPE_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
+option(OPE_ENABLE_SANITIZERS "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+include(CompilerWarnings)
+include(Sanitizers)
+
+if(OPE_BUILD_TESTS)
+    enable_testing()
+    include(FetchGoogleTest)
+endif()
+
+# One directory per layer, each laid out as main/ (code) and test/ (tests).
+add_subdirectory(black_scholes)    # Layer 1: closed-form Black-Scholes

@@ -1,0 +1,30 @@
+# ope_set_warnings(<target>)
+#
+# Attaches the project's warning set to a target. -Wconversion and
+# -Wdouble-promotion matter most here: in numerical code a silent
+# double -> int or float -> double conversion is a correctness bug.
+function(ope_set_warnings target)
+    if(MSVC)
+        set(warnings /W4 /permissive-)
+        if(OPE_WARNINGS_AS_ERRORS)
+            list(APPEND warnings /WX)
+        endif()
+    else()
+        set(warnings
+            -Wall
+            -Wextra
+            -Wpedantic
+            -Wshadow
+            -Wconversion
+            -Wsign-conversion
+            -Wdouble-promotion
+            -Wold-style-cast
+            -Wnon-virtual-dtor
+        )
+        if(OPE_WARNINGS_AS_ERRORS)
+            list(APPEND warnings -Werror)
+        endif()
+    endif()
+
+    target_compile_options(${target} PRIVATE ${warnings})
+endfunction()
