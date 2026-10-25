@@ -13,10 +13,9 @@ namespace {
 using ope::OptionInputs;
 using ope::OptionType;
 
-// Hull Ch 15 worked example: S=42, K=40, T=0.5, r=10%, sigma=20%.
+// Hull Ch 15 worked example.
 OptionInputs hull_example() { return {OptionType::Call, 42.0, 40.0, 0.5, 0.10, 0.20}; }
 
-// Runs validate() and returns the exception message, or "" if nothing was thrown.
 std::string validation_error(const OptionInputs& in) {
     try {
         ope::validate(in);
@@ -26,7 +25,6 @@ std::string validation_error(const OptionInputs& in) {
     return "";
 }
 
-// Passes when validate() throws and the message names `field`.
 ::testing::AssertionResult rejected_for(const OptionInputs& in, const std::string& field) {
     const std::string msg = validation_error(in);
     if (msg.empty()) {
@@ -43,8 +41,6 @@ constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 constexpr double kInf = std::numeric_limits<double>::infinity();
 
 }  // namespace
-
-// ---- valid inputs ---------------------------------------------------------------
 
 TEST(Validate, AcceptsHullExample) {
     EXPECT_NO_THROW(ope::validate(hull_example()));
@@ -74,8 +70,6 @@ TEST(Validate, AcceptsNegativeRate) {
     EXPECT_NO_THROW(ope::validate(in));
 }
 
-// ---- out-of-range values --------------------------------------------------------
-
 TEST(Validate, RejectsNonPositiveSpot) {
     for (double s : {0.0, -42.0}) {
         auto in = hull_example();
@@ -103,8 +97,6 @@ TEST(Validate, RejectsNegativeVolatility) {
     in.volatility = -0.20;
     EXPECT_TRUE(rejected_for(in, "volatility"));
 }
-
-// ---- NaN and infinity, every numeric field --------------------------------------
 
 TEST(Validate, RejectsNonFiniteInEveryField) {
     struct Field {

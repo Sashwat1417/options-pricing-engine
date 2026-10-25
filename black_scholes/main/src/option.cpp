@@ -8,7 +8,6 @@ namespace ope {
 
 namespace {
 
-// Throws std::invalid_argument("OptionInputs.<field> must be <rule>, got <value>") when !ok.
 void require(bool ok, const char* field, const char* rule, double value) {
     if (ok) {
         return;
@@ -21,8 +20,6 @@ void require(bool ok, const char* field, const char* rule, double value) {
 }  // namespace
 
 void validate(const OptionInputs& in) {
-    // NaN fails any comparison on its own, but +inf passes "> 0", so finiteness is
-    // checked explicitly for every field.
     require(std::isfinite(in.spot) && in.spot > 0.0, "spot", "finite and > 0", in.spot);
     require(std::isfinite(in.strike) && in.strike > 0.0, "strike", "finite and > 0", in.strike);
     require(std::isfinite(in.time_to_expiry) && in.time_to_expiry >= 0.0, "time_to_expiry",

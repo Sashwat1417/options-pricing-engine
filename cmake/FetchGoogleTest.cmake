@@ -1,8 +1,4 @@
-# Downloads GoogleTest once for the whole project; every module's tests link
-# GTest::gtest_main from here.
-#
-# Pinned release + checksum so every machine builds against the same GoogleTest.
-# SYSTEM keeps our strict warnings from firing inside GoogleTest's headers.
+# GoogleTest, pinned by version and checksum. Shared by all modules.
 include(FetchContent)
 
 FetchContent_Declare(
@@ -16,5 +12,4 @@ set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
 set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-# CMake's built-in module: provides gtest_discover_tests().
 include(GoogleTest)
