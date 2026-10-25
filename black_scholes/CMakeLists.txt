@@ -1,10 +1,4 @@
-# Layer 1: closed-form Black-Scholes pricing for vanilla European options.
-#
-#   main/include/ope/  public headers, visible to other modules
-#   main/src/          implementation
-#   test/              unit tests
-
-# ---- library ------------------------------------------------------------------
+# Layer 1: Black-Scholes pricer.
 
 add_library(ope_black_scholes
     main/src/option.cpp
@@ -23,10 +17,9 @@ target_compile_definitions(ope_black_scholes PRIVATE OPE_VERSION_STRING="${PROJE
 ope_set_warnings(ope_black_scholes)
 ope_enable_sanitizers(ope_black_scholes)
 
-# ---- tests --------------------------------------------------------------------
-
 if(OPE_BUILD_TESTS)
     add_executable(black_scholes_tests
+        test/test_normal.cpp
         test/test_option.cpp
         test/test_version.cpp
     )

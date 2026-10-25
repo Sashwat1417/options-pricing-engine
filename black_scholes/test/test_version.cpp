@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <string_view>
 
-// Smoke test: proves the library builds, links into the test binary, and runs.
 TEST(Version, IsSemanticVersion) {
     const std::string_view v = ope::version();
 

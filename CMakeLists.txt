@@ -6,8 +6,6 @@ project(options_pricing_engine
     LANGUAGES CXX
 )
 
-# Global defaults only when we are the top-level build, so the library
-# doesn't impose settings on a parent project that pulls it in.
 if(PROJECT_IS_TOP_LEVEL)
     set(CMAKE_CXX_EXTENSIONS OFF)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -26,5 +24,4 @@ if(OPE_BUILD_TESTS)
     include(FetchGoogleTest)
 endif()
 
-# One directory per layer, each laid out as main/ (code) and test/ (tests).
-add_subdirectory(black_scholes)    # Layer 1: closed-form Black-Scholes
+add_subdirectory(black_scholes)  # Layer 1

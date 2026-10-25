@@ -1,8 +1,4 @@
-# ope_enable_sanitizers(<target>)
-#
-# When OPE_ENABLE_SANITIZERS is ON, builds the target with AddressSanitizer
-# (out-of-bounds, use-after-free) and UndefinedBehaviorSanitizer (signed
-# overflow, bad casts). Meant for debug builds; it slows code down ~2x.
+# Adds ASan + UBSan to a target when OPE_ENABLE_SANITIZERS is ON.
 function(ope_enable_sanitizers target)
     if(NOT OPE_ENABLE_SANITIZERS)
         return()

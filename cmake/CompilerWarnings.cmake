@@ -1,8 +1,4 @@
-# ope_set_warnings(<target>)
-#
-# Attaches the project's warning set to a target. -Wconversion and
-# -Wdouble-promotion matter most here: in numerical code a silent
-# double -> int or float -> double conversion is a correctness bug.
+# Adds the project's warning flags to a target.
 function(ope_set_warnings target)
     if(MSVC)
         set(warnings /W4 /permissive-)
