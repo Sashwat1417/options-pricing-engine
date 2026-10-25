@@ -7,6 +7,7 @@
 # ---- library ------------------------------------------------------------------
 
 add_library(ope_black_scholes
+    main/src/option.cpp
     main/src/version.cpp
 )
 add_library(ope::black_scholes ALIAS ope_black_scholes)
@@ -26,6 +27,7 @@ ope_enable_sanitizers(ope_black_scholes)
 
 if(OPE_BUILD_TESTS)
     add_executable(black_scholes_tests
+        test/test_option.cpp
         test/test_version.cpp
     )
 
