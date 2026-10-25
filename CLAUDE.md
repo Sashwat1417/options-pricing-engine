@@ -54,5 +54,6 @@ Three C++ layers. Python is used strictly for visualization — no business logi
 
 ## Reference
 - Primary text: Hull, *Options, Futures, and Other Derivatives*, 11th Global Edition.
-- Confluence (Atlassian Rovo): Space ID 131074, Cloud ID c6ef0bc1-03cd-4dfa-8a10-dfc1b6f87adc.
-  Order Book HLD/LLD page 491521, Kafka Concepts 393246, Order Book parent page 393218.
+- Confluence (Atlassian Rovo, site sashwatpratapsinghcoc.atlassian.net): Space ID 131074,
+  Cloud ID 87de896b-114b-45e8-b55d-40f59f3c015e.
+  Order Book parent page 327681, Order Book HLD/LLD page 393217.
