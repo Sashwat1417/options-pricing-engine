@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 
 project(options_pricing_engine
-    VERSION 0.1.0
+    VERSION 0.2.1
     DESCRIPTION "Options pricing engine: Black-Scholes, Monte Carlo, delta hedging"
     LANGUAGES CXX
 )

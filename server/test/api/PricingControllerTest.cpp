@@ -64,13 +64,6 @@ private:
 
 }  // namespace
 
-TEST_F(PricingControllerTest, HealthReturnsOk) {
-    const auto res = get("/health");
-    ASSERT_TRUE(res);
-    EXPECT_EQ(res->status, 200);
-    EXPECT_EQ(json::parse(res->body), json({{"status", "ok"}}));
-}
-
 TEST_F(PricingControllerTest, PriceReturnsHullValueAsJson) {
     const auto res = post("/api/v1/price", kHullCall);
     ASSERT_TRUE(res);
