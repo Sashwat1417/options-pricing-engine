@@ -18,7 +18,7 @@ Multi-layer C++ options pricing engine: closed-form Black-Scholes, Monte Carlo s
 
 ## Build and test
 
-Requires CMake ≥ 3.25 and a C++17 compiler. GoogleTest is downloaded automatically.
+Requires CMake ≥ 3.28 and a C++17 compiler. GoogleTest is downloaded automatically.
 
 ```sh
 # configure + build + test in one go (debug, warnings as errors, sanitizers on)
@@ -60,6 +60,31 @@ build/debug/server/ope-server            # then open http://localhost:8080
 ```
 
 The UI files live in `server/web/`. Set `WEB_DIR` to serve them from elsewhere.
+
+## Docker
+
+```sh
+docker build -t ope-server .                  # compiles and runs the tests on Linux/g++
+docker run --rm -p 8080:8080 ope-server       # then open http://localhost:8080
+```
+
+Multi-stage build on Ubuntu 24.04: the build stage compiles and tests; the runtime image
+(~140 MB) holds only `ope-server` and `server/web/`, runs as a non-root user, reads `PORT`
+(default 8080), and shuts down cleanly on `docker stop`.
+
+## Kubernetes
+
+`k8s/ope-server.yaml` runs 3 replicas spread across nodes, with `/health` readiness and liveness
+probes, resource requests/limits, and a Service in front.
+
+```sh
+docker build -t ope-server .
+kubectl apply -f k8s/ope-server.yaml
+kubectl get pods -o wide                              # NODE column shows the spread
+kubectl port-forward service/ope-server 8080:8080     # then open http://localhost:8080
+```
+
+Tested on Docker Desktop's kind cluster (1 control plane + 2 workers).
 
 ## REST API
 
