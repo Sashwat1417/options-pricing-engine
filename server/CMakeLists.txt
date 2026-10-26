@@ -36,6 +36,7 @@ ope_enable_sanitizers(ope_server)
 
 if(OPE_BUILD_TESTS)
     add_executable(server_tests
+        test/api/PricingControllerTest.cpp
         test/request/RequestParsingTest.cpp
         test/service/PricingServiceTest.cpp
     )
