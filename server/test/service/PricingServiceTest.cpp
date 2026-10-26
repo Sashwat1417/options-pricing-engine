@@ -19,7 +19,7 @@ namespace {
 // Hull Ch 15 worked example.
 OptionInputs hullCall() { return {OptionType::Call, 42.0, 40.0, 0.5, 0.10, 0.20}; }
 
-const PricingService service;
+const PricingService service{};
 
 }  // namespace
 

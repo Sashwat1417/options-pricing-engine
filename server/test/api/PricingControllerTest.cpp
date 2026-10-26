@@ -6,6 +6,7 @@
 #include <nlohmann/json.hpp>
 
 #include <atomic>
+#include <cmath>
 #include <string>
 #include <thread>
 #include <vector>
@@ -14,6 +15,7 @@ using nlohmann::json;
 using ope::server::PricingController;
 using ope::server::PricingService;
 using std::atomic;
+using std::fabs;
 using std::string;
 using std::thread;
 using std::vector;
@@ -53,7 +55,7 @@ protected:
     httplib::Client client() const { return httplib::Client("127.0.0.1", port_); }
 
 private:
-    const PricingService service_;
+    const PricingService service_{};
     const PricingController controller_{service_};
     httplib::Server server_;
     int port_ = 0;
@@ -136,7 +138,8 @@ TEST_F(PricingControllerTest, HandlesConcurrentRequests) {
             for (int i = 0; i < kRequestsPerThread; ++i) {
                 const auto res = post("/api/v1/price", kHullCall);
                 if (res && res->status == 200 &&
-                    json::parse(res->body).at("price").get<double>() == 4.759422392871535) {
+                    fabs(json::parse(res->body).at("price").get<double>() - 4.759422392871535) <
+                        1e-12) {
                     ++correct;
                 }
             }
