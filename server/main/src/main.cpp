@@ -1,30 +1,50 @@
+#include "api/HealthController.hpp"
 #include "api/PricingController.hpp"
 #include "api/WebController.hpp"
+#include "config/ServerConfig.hpp"
+#include "ope/version.hpp"
 #include "service/PricingService.hpp"
 
 #include <httplib.h>
+#include <nlohmann/json.hpp>
 #include <pthread.h>
-#include <sys/socket.h>
 #include <unistd.h>
 
+#include <chrono>
 #include <csignal>
-#include <cstdlib>
 #include <exception>
 #include <iostream>
 #include <string>
 #include <thread>
 
+using nlohmann::json;
+using ope::server::applyServerLimits;
+using ope::server::HealthController;
 using ope::server::PricingController;
 using ope::server::PricingService;
+using ope::server::ServerConfig;
 using ope::server::WebController;
 using std::cerr;
 using std::cout;
 using std::exception;
 using std::flush;
-using std::getenv;
-using std::stoi;
-using std::string;
 using std::thread;
+using std::chrono::duration;
+using std::chrono::steady_clock;
+
+namespace {
+
+// httplib handles each request start to finish on one worker thread.
+thread_local steady_clock::time_point requestStart;
+
+void logRequest(const httplib::Request& req, const httplib::Response& res) {
+    const double ms = duration<double, std::milli>(steady_clock::now() - requestStart).count();
+    const json line = {{"method", req.method}, {"path", req.path}, {"status", res.status},
+                       {"ms", static_cast<double>(static_cast<long long>(ms * 1000)) / 1000}};
+    cout << line.dump() << '\n' << flush;
+}
+
+}  // namespace
 
 int main() {
     // Block SIGINT/SIGTERM in every thread; a dedicated thread waits for them and stops the
@@ -35,30 +55,22 @@ int main() {
     sigaddset(&signals, SIGTERM);
     pthread_sigmask(SIG_BLOCK, &signals, nullptr);
 
-    int port = 8080;
+    ServerConfig config;
     try {
-        if (const char* env = getenv("PORT")) {
-            port = stoi(env);
-        }
-    } catch (const exception&) {
-        cerr << "error: PORT must be a number\n";
+        config = ServerConfig::fromEnv(OPE_WEB_DIR);
+    } catch (const exception& e) {
+        cerr << "error: " << e.what() << '\n';
         return 1;
     }
 
-    const char* webDirEnv = getenv("WEB_DIR");
-    const string webDir = webDirEnv ? webDirEnv : OPE_WEB_DIR;
-
     const PricingService service{};
     const PricingController pricing(service);
-    const WebController web(webDir);
+    const HealthController health(config.commit);
+    const WebController web(config.webDir);
 
     httplib::Server server;
-    // httplib's default adds SO_REUSEPORT, which lets a second process silently share the
-    // port. Keep SO_REUSEADDR only, so a busy port is an error.
-    server.set_socket_options([](socket_t sock) {
-        const int yes = 1;
-        setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, static_cast<socklen_t>(sizeof(yes)));
-    });
+    applyServerLimits(server);
+    health.registerRoutes(server);
     pricing.registerRoutes(server);
     try {
         web.registerRoutes(server);
@@ -66,9 +78,12 @@ int main() {
         cerr << "error: " << e.what() << '\n';
         return 1;
     }
-    server.set_logger([](const httplib::Request& req, const httplib::Response& res) {
-        cout << req.method << ' ' << req.path << ' ' << res.status << '\n' << flush;
+
+    server.set_pre_routing_handler([](const httplib::Request&, httplib::Response&) {
+        requestStart = steady_clock::now();
+        return httplib::Server::HandlerResponse::Unhandled;
     });
+    server.set_logger(logRequest);
 
     thread shutdown([&server, signals] {
         int signal = 0;
@@ -77,10 +92,12 @@ int main() {
         server.stop();
     });
 
-    cout << "ope-server listening on 0.0.0.0:" << port << " (web: " << webDir << ")\n" << flush;
-    const bool ok = server.listen("0.0.0.0", port);
+    cout << "ope-server " << ope::version() << " (commit " << config.commit
+         << ") listening on 0.0.0.0:" << config.port << " (web: " << config.webDir << ")\n"
+         << flush;
+    const bool ok = server.listen("0.0.0.0", config.port);
     if (!ok) {
-        cerr << "error: could not listen on port " << port << '\n';
+        cerr << "error: could not listen on port " << config.port << '\n';
         kill(getpid(), SIGTERM);  // wake the shutdown thread so it can be joined
     }
     shutdown.join();

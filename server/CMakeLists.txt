@@ -3,8 +3,10 @@
 # with request/ and response/ DTOs at the edges.
 
 add_library(ope_server_core
+    main/src/api/HealthController.cpp
     main/src/api/PricingController.cpp
     main/src/api/WebController.cpp
+    main/src/config/ServerConfig.cpp
     main/src/request/IvRequest.cpp
     main/src/request/JsonReader.cpp
     main/src/request/PriceRequest.cpp
@@ -40,8 +42,10 @@ ope_enable_sanitizers(ope_server)
 
 if(OPE_BUILD_TESTS)
     add_executable(server_tests
+        test/api/HealthControllerTest.cpp
         test/api/PricingControllerTest.cpp
         test/api/WebControllerTest.cpp
+        test/config/ServerConfigTest.cpp
         test/request/RequestParsingTest.cpp
         test/service/PricingServiceTest.cpp
     )
