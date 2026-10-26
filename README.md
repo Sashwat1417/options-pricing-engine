@@ -50,6 +50,28 @@ ope iv --type call --spot 42 --strike 40 --expiry 0.5 --rate 0.1 --price 4.76
 ope sweep --spot 42 --strike 40 --expiry 0.5 --rate 0.1 --vol 0.2 --vary spot --from 20 --to 60 --steps 200
 ```
 
+## REST API
+
+```sh
+build/debug/server/ope-server            # listens on $PORT, default 8080
+
+curl localhost:8080/health
+# {"status":"ok"}
+
+curl localhost:8080/api/v1/price -H 'Content-Type: application/json' \
+     -d '{"type":"call","spot":42,"strike":40,"expiry":0.5,"rate":0.1,"vol":0.2}'
+# {"price":4.759422392871535}
+```
+
+| Endpoint | Body | Response |
+|---|---|---|
+| `GET /health` | | `{"status":"ok"}` |
+| `POST /api/v1/price` | `type, spot, strike, expiry, rate, vol` | `{"price": …}` |
+| `POST /api/v1/iv` | `type, spot, strike, expiry, rate, price` | `{"implied_vol": …}` |
+| `POST /api/v1/sweep` | `spot, strike, expiry, rate, vol, vary, from, to, steps` (`vol` not needed when `vary` is `vol`) | arrays `x, call, put, call_payoff, put_payoff` |
+
+Bad input returns `400 {"error": "..."}`.
+
 ## Charts
 
 Python only draws: `viz/plot.py` runs `ope sweep` and plots the CSV it returns.
@@ -71,7 +93,13 @@ black_scholes/                Layer 1 (target: ope::black_scholes)
 cli/                          `ope` command-line tool
 ├── main/src/
 └── test/                     smoke tests that run the binary
-cmake/                        shared build helpers (warnings, sanitizers, GoogleTest, CLI11)
+server/                       `ope-server` REST API
+├── main/src/api/             PricingController: routes, JSON ⇄ DTOs, HTTP status
+├── main/src/service/         PricingService: calls ope::black_scholes
+├── main/src/request/         PriceRequest, IvRequest, SweepRequest (+ JsonReader)
+├── main/src/response/        PriceResponse, IvResponse, SweepResponse, ErrorResponse
+└── test/                     request/ and service/ unit tests
+cmake/                        shared build helpers (warnings, sanitizers, GoogleTest, CLI11, httplib, json)
 viz/                          Python plotting (draws only, no pricing logic)
 docs/images/                  generated charts
 ```

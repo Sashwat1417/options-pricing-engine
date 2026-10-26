@@ -4,6 +4,7 @@ add_library(ope_black_scholes
     main/src/black_scholes.cpp
     main/src/implied_vol.cpp
     main/src/option.cpp
+    main/src/sweep.cpp
     main/src/version.cpp
 )
 add_library(ope::black_scholes ALIAS ope_black_scholes)
@@ -25,6 +26,7 @@ if(OPE_BUILD_TESTS)
         test/test_implied_vol.cpp
         test/test_normal.cpp
         test/test_option.cpp
+        test/test_sweep.cpp
         test/test_version.cpp
     )
 
