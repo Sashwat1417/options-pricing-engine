@@ -4,6 +4,8 @@
 
 Multi-layer C++ options pricing engine: closed-form Black-Scholes, Monte Carlo simulation, and delta-hedging P&amp;L, with Python visualisation.
 
+**Live demo: https://ope-server.onrender.com** (free tier: the first request after 15 idle minutes takes about a minute)
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/price_vs_spot-dark.png">
   <img alt="Call and put price today vs payoff at expiry, Hull Ch 15 example" src="docs/images/price_vs_spot.png">
@@ -122,11 +124,12 @@ curl localhost:8080/api/v1/price -H 'Content-Type: application/json' \
 | Endpoint | Body | Response |
 |---|---|---|
 | `GET /health` | | `{"status":"ok"}` |
+| `GET /version` | | `{"version": "0.2.1", "commit": "<deployed git sha>"}` |
 | `POST /api/v1/price` | `type, spot, strike, expiry, rate, vol` | `{"price": …}` |
 | `POST /api/v1/iv` | `type, spot, strike, expiry, rate, price` | `{"implied_vol": …}` |
 | `POST /api/v1/sweep` | `spot, strike, expiry, rate, vol, vary, from, to, steps` (`vol` not needed when `vary` is `vol`) | arrays `x, call, put, call_payoff, put_payoff` |
 
-Bad input returns `400 {"error": "..."}`.
+Bad input returns `400 {"error": "..."}`. Bodies over 64 KB get `413`. Each request is logged as one JSON line with its duration.
 
 ## Charts
 
@@ -150,7 +153,8 @@ cli/                          `ope` command-line tool
 ├── main/src/
 └── test/                     smoke tests that run the binary
 server/                       `ope-server` REST API
-├── main/src/api/             PricingController (JSON API), WebController (static UI)
+├── main/src/api/             PricingController (JSON API), HealthController, WebController (UI)
+├── main/src/config/          ServerConfig: env vars, payload/timeout limits
 ├── main/src/service/         PricingService: calls ope::black_scholes
 ├── main/src/request/         PriceRequest, IvRequest, SweepRequest (+ JsonReader)
 ├── main/src/response/        PriceResponse, IvResponse, SweepResponse, ErrorResponse

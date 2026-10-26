@@ -45,9 +45,6 @@ void postJson(httplib::Server& server, const char* path, function<json(const jso
 PricingController::PricingController(const PricingService& service) : service_(service) {}
 
 void PricingController::registerRoutes(httplib::Server& server) const {
-    server.Get("/health",
-               [](const Request&, Response& res) { send(res, 200, {{"status", "ok"}}); });
-
     postJson(server, "/api/v1/price", [this](const json& body) {
         return service_.price(PriceRequest::fromJson(body)).toJson();
     });

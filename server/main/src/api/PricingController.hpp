@@ -6,7 +6,7 @@
 
 namespace ope::server {
 
-// GET /health, POST /api/v1/{price,iv,sweep}.
+// POST /api/v1/{price,iv,sweep}.
 // Bad input -> 400 {"error": ...}, unexpected failure -> 500.
 class PricingController {
 public:
