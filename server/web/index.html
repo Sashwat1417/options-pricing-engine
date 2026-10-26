@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Options Pricing Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-row">
+      <h1>Options Pricing Engine</h1>
+      <span class="tag">Black-Scholes · C++17 backend</span>
+    </div>
+  </header>
+
+  <main class="wrap layout">
+    <section class="card inputs" aria-labelledby="inputs-title">
+      <h2 id="inputs-title">Option</h2>
+      <label>Spot price S <input id="spot" type="number" step="any" value="42"></label>
+      <label>Strike K <input id="strike" type="number" step="any" value="40"></label>
+      <label>Time to expiry (days) <input id="days" type="number" step="any" value="182.5"></label>
+      <label>Risk-free rate r (%) <input id="rate" type="number" step="any" value="10"></label>
+      <label>Volatility σ (%) <input id="vol" type="number" step="any" value="20"></label>
+      <p class="hint">Defaults are Hull's Ch 15 example.</p>
+      <p id="error" class="error" role="alert" hidden></p>
+    </section>
+
+    <div class="results">
+      <section class="prices" aria-label="Prices">
+        <div class="card price">
+          <span class="label">Call</span>
+          <span id="call-price" class="value">–</span>
+        </div>
+        <div class="card price">
+          <span class="label">Put</span>
+          <span id="put-price" class="value">–</span>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="iv-title">
+        <h2 id="iv-title">Implied volatility</h2>
+        <div class="iv-row">
+          <label>Type
+            <select id="iv-type">
+              <option value="call">Call</option>
+              <option value="put">Put</option>
+            </select>
+          </label>
+          <label>Market price <input id="iv-price" type="number" step="any" value="4.76"></label>
+          <div class="iv-out">
+            <span class="label">Implied vol</span>
+            <span id="iv-result" class="value small">–</span>
+          </div>
+        </div>
+        <p id="iv-error" class="error" role="alert" hidden></p>
+      </section>
+
+      <section class="card" aria-labelledby="chart-title">
+        <div class="chart-head">
+          <h2 id="chart-title">Price as one input varies</h2>
+          <div class="segmented" role="tablist" aria-label="Vary">
+            <button type="button" data-axis="spot" aria-selected="true">Spot</button>
+            <button type="button" data-axis="vol" aria-selected="false">Volatility</button>
+            <button type="button" data-axis="expiry" aria-selected="false">Expiry</button>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="chart" aria-label="Call and put price chart"></canvas></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="wrap foot">
+    Every number on this page comes from the C++ API: <code>/api/v1/price</code>, <code>/iv</code>, <code>/sweep</code>.
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

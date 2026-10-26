@@ -4,6 +4,7 @@
 
 add_library(ope_server_core
     main/src/api/PricingController.cpp
+    main/src/api/WebController.cpp
     main/src/request/IvRequest.cpp
     main/src/request/JsonReader.cpp
     main/src/request/PriceRequest.cpp
@@ -31,17 +32,22 @@ set_target_properties(ope_server PROPERTIES OUTPUT_NAME ope-server)
 
 target_link_libraries(ope_server PRIVATE ope_server_core)
 
+# Default location of the web UI; override at runtime with WEB_DIR.
+target_compile_definitions(ope_server PRIVATE OPE_WEB_DIR="${CMAKE_CURRENT_SOURCE_DIR}/web")
+
 ope_set_warnings(ope_server)
 ope_enable_sanitizers(ope_server)
 
 if(OPE_BUILD_TESTS)
     add_executable(server_tests
         test/api/PricingControllerTest.cpp
+        test/api/WebControllerTest.cpp
         test/request/RequestParsingTest.cpp
         test/service/PricingServiceTest.cpp
     )
 
     target_link_libraries(server_tests PRIVATE ope_server_core GTest::gtest_main)
+    target_compile_definitions(server_tests PRIVATE OPE_WEB_DIR="${CMAKE_CURRENT_SOURCE_DIR}/web")
 
     ope_set_warnings(server_tests)
     ope_enable_sanitizers(server_tests)

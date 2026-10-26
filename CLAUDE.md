@@ -16,6 +16,8 @@ actively applying.
 
 ## Architecture (fixed)
 Three C++ layers. Python is used strictly for visualization — no business logic in Python.
+The same rule covers the web UI (`server/web/`, JS): it reads inputs, calls the C++ REST API
+(`ope-server`), and displays results; unit conversion is fine, pricing is not.
 
 - **Layer 1 — Black-Scholes analytical pricer.** Closed-form f(S,t) for vanilla European
   calls/puts. *Currently being implemented.*
