@@ -1,4 +1,7 @@
 # options-pricing-engine
+
+[![CI](https://github.com/Sashwat1417/options-pricing-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Sashwat1417/options-pricing-engine/actions/workflows/ci.yml)
+
 Multi-layer C++ options pricing engine: closed-form Black-Scholes, Monte Carlo simulation, and delta-hedging P&amp;L, with Python visualisation.
 
 <picture>
@@ -60,6 +63,16 @@ build/debug/server/ope-server            # then open http://localhost:8080
 ```
 
 The UI files live in `server/web/`. Set `WEB_DIR` to serve them from elsewhere.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every PR and push to `develop` / `main`:
+
+| Job | What it checks |
+|---|---|
+| Test (Linux · g++) | `cmake --workflow --preset debug`: Werror + ASan/UBSan, all tests |
+| Test (macOS · clang) | the same on macOS |
+| Docker image | builds the image (runs ctest inside), starts it, curls `/health`, the API and the UI |
 
 ## Docker
 
