@@ -74,6 +74,13 @@ The UI files live in `server/web/`. Set `WEB_DIR` to serve them from elsewhere.
 | Test (macOS · clang) | the same on macOS |
 | Docker image | builds the image (runs ctest inside), starts it, curls `/health`, the API and the UI |
 
+## Deployment (Render)
+
+`render.yaml` is a Render Blueprint: a Docker web service on the free plan in Singapore,
+health-checked on `/health`. Render rebuilds and deploys from `main` after GitHub CI passes
+(`autoDeployTrigger: checksPass`). Free instances sleep after 15 idle minutes; the first
+request after that takes about a minute.
+
 ## Docker
 
 ```sh

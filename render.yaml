@@ -1,0 +1,13 @@
+# Render Blueprint: deploys ope-server from the Dockerfile on every push to main
+# once GitHub CI passes. Render sets PORT; the server reads it.
+services:
+  - type: web
+    name: ope-server
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
