@@ -1,10 +1,10 @@
 #include "ope/black_scholes.hpp"
 #include "ope/implied_vol.hpp"
 #include "ope/option.hpp"
+#include "ope/sweep.hpp"
 
 #include <CLI/CLI.hpp>
 
-#include <algorithm>
 #include <iomanip>
 #include <iostream>
 #include <map>
@@ -17,7 +17,6 @@ using std::exception;
 using std::fixed;
 using std::invalid_argument;
 using std::map;
-using std::max;
 using std::setprecision;
 using std::string;
 
@@ -25,8 +24,7 @@ namespace {
 
 using ope::OptionInputs;
 using ope::OptionType;
-
-enum class Axis { Spot, Vol, Expiry };
+using ope::SweepAxis;
 
 void add_type_option(CLI::App& cmd, OptionType& type) {
     const map<string, OptionType> types{{"call", OptionType::Call}, {"put", OptionType::Put}};
@@ -42,32 +40,13 @@ void add_market_options(CLI::App& cmd, OptionInputs& in) {
     cmd.add_option("--rate", in.rate, "Risk-free rate r, continuously compounded")->required();
 }
 
-double& axis_field(OptionInputs& in, Axis axis) {
-    switch (axis) {
-        case Axis::Spot:
-            return in.spot;
-        case Axis::Vol:
-            return in.volatility;
-        case Axis::Expiry:
-            return in.time_to_expiry;
-    }
-    throw invalid_argument("unknown sweep axis");
-}
-
 // CSV: <axis>,call,put,call_payoff,put_payoff
-void run_sweep(OptionInputs in, Axis axis, const string& axis_name, double from, double to,
-               int steps) {
+void print_sweep(const OptionInputs& in, SweepAxis axis, const string& axis_name, double from,
+                 double to, int steps) {
     cout << axis_name << ",call,put,call_payoff,put_payoff\n" << setprecision(10);
-    for (int i = 0; i < steps; ++i) {
-        axis_field(in, axis) = from + (to - from) * static_cast<double>(i) / (steps - 1);
-
-        in.type = OptionType::Call;
-        const double call = ope::price(in);
-        in.type = OptionType::Put;
-        const double put = ope::price(in);
-
-        cout << axis_field(in, axis) << ',' << call << ',' << put << ','
-             << max(in.spot - in.strike, 0.0) << ',' << max(in.strike - in.spot, 0.0) << '\n';
+    for (const auto& p : ope::sweep(in, axis, from, to, steps)) {
+        cout << p.x << ',' << p.call << ',' << p.put << ',' << p.call_payoff << ','
+             << p.put_payoff << '\n';
     }
 }
 
@@ -90,8 +69,8 @@ int main(int argc, char** argv) {
     add_market_options(*iv_cmd, in);
     iv_cmd->add_option("--price", market_price, "Market price of the option")->required();
 
-    const map<string, Axis> axes{{"spot", Axis::Spot}, {"vol", Axis::Vol}, {"expiry", Axis::Expiry}};
-    Axis axis = Axis::Spot;
+    const map<string, SweepAxis> axes{
+        {"spot", SweepAxis::Spot}, {"vol", SweepAxis::Vol}, {"expiry", SweepAxis::Expiry}};
     string axis_name;
     double from = 0.0;
     double to = 0.0;
@@ -115,11 +94,11 @@ int main(int argc, char** argv) {
         } else if (*iv_cmd) {
             cout << fixed << setprecision(6) << ope::implied_vol(in, market_price) << '\n';
         } else {
-            axis = axes.at(axis_name);
-            if (axis != Axis::Vol && vol_opt->count() == 0) {
+            const SweepAxis axis = axes.at(axis_name);
+            if (axis != SweepAxis::Vol && vol_opt->count() == 0) {
                 throw invalid_argument("--vol is required unless --vary vol");
             }
-            run_sweep(in, axis, axis_name, from, to, steps);
+            print_sweep(in, axis, axis_name, from, to, steps);
         }
     } catch (const exception& e) {
         cerr << "error: " << e.what() << '\n';

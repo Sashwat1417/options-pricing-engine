@@ -1,0 +1,50 @@
+# ope-server on Kubernetes: 3 replicas spread across nodes, behind one Service.
+#   kubectl apply -f k8s/ope-server.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ope-server
+  labels: { app: ope-server }
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: ope-server }
+  template:
+    metadata:
+      labels: { app: ope-server }
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app: ope-server }
+      containers:
+        - name: ope-server
+          image: ope-server:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+          resources:
+            requests: { cpu: 50m, memory: 32Mi }
+            limits: { cpu: 500m, memory: 128Mi }
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: 8080 }
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ope-server
+spec:
+  type: LoadBalancer
+  selector: { app: ope-server }
+  ports:
+    - port: 8080
+      targetPort: 8080
