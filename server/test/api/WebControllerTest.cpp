@@ -38,7 +38,7 @@ protected:
     httplib::Client client() const { return httplib::Client("127.0.0.1", port_); }
 
 private:
-    const PricingService service_;
+    const PricingService service_{};
     const PricingController pricing_{service_};
     const WebController web_{OPE_WEB_DIR};
     httplib::Server server_;
