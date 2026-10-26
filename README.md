@@ -50,6 +50,17 @@ ope iv --type call --spot 42 --strike 40 --expiry 0.5 --rate 0.1 --price 4.76
 ope sweep --spot 42 --strike 40 --expiry 0.5 --rate 0.1 --vol 0.2 --vary spot --from 20 --to 60 --steps 200
 ```
 
+## Web UI
+
+`ope-server` also serves a page at `/`: option inputs, live call/put prices, an implied-vol
+calculator and interactive charts. The page only displays; every number comes from the API.
+
+```sh
+build/debug/server/ope-server            # then open http://localhost:8080
+```
+
+The UI files live in `server/web/`. Set `WEB_DIR` to serve them from elsewhere.
+
 ## REST API
 
 ```sh
@@ -94,11 +105,12 @@ cli/                          `ope` command-line tool
 ├── main/src/
 └── test/                     smoke tests that run the binary
 server/                       `ope-server` REST API
-├── main/src/api/             PricingController: routes, JSON ⇄ DTOs, HTTP status
+├── main/src/api/             PricingController (JSON API), WebController (static UI)
 ├── main/src/service/         PricingService: calls ope::black_scholes
 ├── main/src/request/         PriceRequest, IvRequest, SweepRequest (+ JsonReader)
 ├── main/src/response/        PriceResponse, IvResponse, SweepResponse, ErrorResponse
-└── test/                     request/ and service/ unit tests
+├── web/                      index.html, app.css, app.js (display only)
+└── test/                     api/ (real HTTP), request/ and service/ tests
 cmake/                        shared build helpers (warnings, sanitizers, GoogleTest, CLI11, httplib, json)
 viz/                          Python plotting (draws only, no pricing logic)
 docs/images/                  generated charts
