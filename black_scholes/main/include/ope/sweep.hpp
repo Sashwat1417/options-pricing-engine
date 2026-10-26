@@ -1,0 +1,24 @@
+#pragma once
+
+#include "ope/option.hpp"
+
+#include <vector>
+
+namespace ope {
+
+enum class SweepAxis { Spot, Vol, Expiry };
+
+struct SweepPoint {
+    double x;
+    double call;
+    double put;
+    double call_payoff;  // at expiry
+    double put_payoff;
+};
+
+// Prices a call and a put at `steps` evenly spaced values of `axis` in [from, to].
+// base.type is ignored. Throws std::invalid_argument if steps < 2 or any point is invalid.
+[[nodiscard]] std::vector<SweepPoint> sweep(const OptionInputs& base, SweepAxis axis, double from,
+                                            double to, int steps);
+
+}  // namespace ope
