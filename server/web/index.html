@@ -15,6 +15,11 @@
       <h1>Options Pricing Engine</h1>
       <span class="tag">Black-Scholes · C++17 backend</span>
     </div>
+    <nav class="wrap tabs" role="tablist" aria-label="Sections">
+      <button type="button" role="tab" data-view="pricing" aria-selected="true">Pricing</button>
+      <button type="button" role="tab" data-view="greeks" aria-selected="false">Greeks</button>
+      <button type="button" role="tab" data-view="iv" aria-selected="false">Implied vol</button>
+    </nav>
   </header>
 
   <main class="wrap layout">
@@ -25,22 +30,65 @@
       <label>Time to expiry (days) <input id="days" type="number" step="any" value="182.5"></label>
       <label>Risk-free rate r (%) <input id="rate" type="number" step="any" value="10"></label>
       <label>Volatility σ (%) <input id="vol" type="number" step="any" value="20"></label>
-      <p class="hint">Defaults are Hull's Ch 15 example.</p>
+      <p class="hint">Defaults are Hull's Ch 15 example. Shared by every tab.</p>
       <p id="error" class="error" role="alert" hidden></p>
     </section>
 
-    <div class="results">
-      <section class="prices" aria-label="Prices">
-        <div class="card price">
-          <span class="label">Call</span>
+    <!-- Pricing -->
+    <div class="results" id="view-pricing" role="tabpanel">
+      <section class="pair" aria-label="Prices">
+        <div class="card stat">
+          <span class="label">Call price</span>
           <span id="call-price" class="value">–</span>
         </div>
-        <div class="card price">
-          <span class="label">Put</span>
+        <div class="card stat">
+          <span class="label">Put price</span>
           <span id="put-price" class="value">–</span>
         </div>
       </section>
+      <section class="card" aria-labelledby="price-chart-title">
+        <div class="chart-head">
+          <h2 id="price-chart-title">Price as one input varies</h2>
+          <div class="segmented" role="group" aria-label="Vary">
+            <button type="button" data-axis="spot" aria-selected="true">Spot</button>
+            <button type="button" data-axis="vol" aria-selected="false">Volatility</button>
+            <button type="button" data-axis="expiry" aria-selected="false">Expiry</button>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="price-chart" aria-label="Call and put price chart"></canvas></div>
+      </section>
+    </div>
 
+    <!-- Greeks -->
+    <div class="results" id="view-greeks" role="tabpanel" hidden>
+      <section class="pair" aria-label="Deltas">
+        <div class="card stat">
+          <span class="label">Call delta Δ</span>
+          <span id="call-delta" class="value">–</span>
+          <span class="hint">shares to hold per call sold</span>
+        </div>
+        <div class="card stat">
+          <span class="label">Put delta Δ</span>
+          <span id="put-delta" class="value">–</span>
+          <span class="hint">shares to short per put sold</span>
+        </div>
+      </section>
+      <section class="card" aria-labelledby="greek-chart-title">
+        <div class="chart-head">
+          <h2 id="greek-chart-title">Delta Δ as one input varies</h2>
+          <div class="segmented" role="group" aria-label="Vary">
+            <button type="button" data-axis="spot" aria-selected="true">Spot</button>
+            <button type="button" data-axis="vol" aria-selected="false">Volatility</button>
+            <button type="button" data-axis="expiry" aria-selected="false">Expiry</button>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="greek-chart" aria-label="Call and put delta chart"></canvas></div>
+        <p class="hint">Δ = ∂price/∂S, the slope of the price curve. Δ<sub>put</sub> = Δ<sub>call</sub> − 1.</p>
+      </section>
+    </div>
+
+    <!-- Implied vol -->
+    <div class="results" id="view-iv" role="tabpanel" hidden>
       <section class="card" aria-labelledby="iv-title">
         <h2 id="iv-title">Implied volatility</h2>
         <div class="iv-row">
@@ -57,24 +105,13 @@
           </div>
         </div>
         <p id="iv-error" class="error" role="alert" hidden></p>
-      </section>
-
-      <section class="card" aria-labelledby="chart-title">
-        <div class="chart-head">
-          <h2 id="chart-title">Price as one input varies</h2>
-          <div class="segmented" role="tablist" aria-label="Vary">
-            <button type="button" data-axis="spot" aria-selected="true">Spot</button>
-            <button type="button" data-axis="vol" aria-selected="false">Volatility</button>
-            <button type="button" data-axis="expiry" aria-selected="false">Expiry</button>
-          </div>
-        </div>
-        <div class="chart-box"><canvas id="chart" aria-label="Call and put price chart"></canvas></div>
+        <p class="hint">Uses spot, strike, expiry and rate from the inputs; σ is what gets solved for.</p>
       </section>
     </div>
   </main>
 
   <footer class="wrap foot">
-    Every number on this page comes from the C++ API: <code>/api/v1/price</code>, <code>/iv</code>, <code>/sweep</code>.
+    Every number on this page comes from the C++ API: <code>/api/v1/price</code>, <code>/greeks</code>, <code>/iv</code>, <code>/sweep</code>.
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>

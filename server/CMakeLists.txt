@@ -7,6 +7,7 @@ add_library(ope_server_core
     main/src/api/PricingController.cpp
     main/src/api/WebController.cpp
     main/src/config/ServerConfig.cpp
+    main/src/request/GreeksRequest.cpp
     main/src/request/IvRequest.cpp
     main/src/request/JsonReader.cpp
     main/src/request/PriceRequest.cpp

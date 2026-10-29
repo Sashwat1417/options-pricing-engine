@@ -48,7 +48,7 @@ body {
 .wrap { max-width: 1080px; margin: 0 auto; padding-inline: 20px; }
 
 .top { border-bottom: 1px solid var(--line); background: var(--surface); }
-.top-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; padding-block: 16px; }
+.top-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; padding-block: 16px 6px; }
 h1 { margin: 0; font-size: 20px; font-weight: 600; }
 .tag { font: 12px var(--f-mono); color: var(--muted); letter-spacing: .04em; }
 
@@ -88,11 +88,23 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 }
 
 .results { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.prices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.price { display: flex; flex-direction: column; gap: 2px; }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.stat { display: flex; flex-direction: column; gap: 2px; }
 .label { font: 12px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .value { font: 500 30px var(--f-mono); font-variant-numeric: tabular-nums; }
 .value.small { font-size: 22px; }
+.tabs { display: flex; gap: 4px; }
+.tabs button {
+  font: 500 14px var(--f-body);
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 8px 12px 10px;
+  cursor: pointer;
+}
+.tabs button:hover { color: var(--ink); }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
 
 .iv-row { display: grid; grid-template-columns: 120px 160px 1fr; gap: 12px; align-items: end; }
 @media (max-width: 520px) { .iv-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

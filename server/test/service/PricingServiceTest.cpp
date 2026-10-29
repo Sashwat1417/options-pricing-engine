@@ -8,6 +8,7 @@ using nlohmann::json;
 using ope::OptionInputs;
 using ope::OptionType;
 using ope::SweepAxis;
+using ope::server::GreeksRequest;
 using ope::server::IvRequest;
 using ope::server::PriceRequest;
 using ope::server::PricingService;
@@ -47,13 +48,20 @@ TEST(PricingService, SweepResponseHasEqualLengthArrays) {
     const json out = service.sweep(request).toJson();
     EXPECT_EQ(out.at("vary"), "spot");
     EXPECT_EQ(out.at("x"), json({30.0, 40.0, 50.0}));
-    for (const char* key : {"call", "put", "call_payoff", "put_payoff"}) {
+    for (const char* key :
+         {"call", "put", "call_payoff", "put_payoff", "call_delta", "put_delta"}) {
         EXPECT_EQ(out.at(key).size(), 3u) << key;
     }
     EXPECT_EQ(out.at("put_payoff"), json({10.0, 0.0, 0.0}));
 }
 
+TEST(PricingService, ReturnsHullCh19Delta) {
+    const OptionInputs ch19{OptionType::Call, 49.0, 50.0, 0.3846, 0.05, 0.20};
+    EXPECT_NEAR(service.greeks(GreeksRequest{ch19}).greeks.delta, 0.5216016339715761, 1e-12);
+}
+
 TEST(PricingService, ResponsesSerialiseWithApiFieldNames) {
     EXPECT_TRUE(service.price({hullCall()}).toJson().contains("price"));
     EXPECT_TRUE(service.impliedVol({hullCall(), 4.76}).toJson().contains("implied_vol"));
+    EXPECT_TRUE(service.greeks(GreeksRequest{hullCall()}).toJson().contains("delta"));
 }

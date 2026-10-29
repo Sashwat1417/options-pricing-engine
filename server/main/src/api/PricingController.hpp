@@ -6,7 +6,7 @@
 
 namespace ope::server {
 
-// POST /api/v1/{price,iv,sweep}.
+// POST /api/v1/{price,iv,sweep,greeks}.
 // Bad input -> 400 {"error": ...}, unexpected failure -> 500.
 class PricingController {
 public:

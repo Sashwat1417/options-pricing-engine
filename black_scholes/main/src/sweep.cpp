@@ -1,6 +1,7 @@
 #include "ope/sweep.hpp"
 
 #include "ope/black_scholes.hpp"
+#include "ope/greeks.hpp"
 
 #include <algorithm>
 #include <stdexcept>
@@ -42,11 +43,13 @@ vector<SweepPoint> sweep(const OptionInputs& base, SweepAxis axis, double from, 
 
         in.type = OptionType::Call;
         const double call = price(in);
+        const double call_delta = greeks(in).delta;
         in.type = OptionType::Put;
         const double put = price(in);
+        const double put_delta = greeks(in).delta;
 
-        points.push_back(
-            {x, call, put, max(in.spot - in.strike, 0.0), max(in.strike - in.spot, 0.0)});
+        points.push_back({x, call, put, max(in.spot - in.strike, 0.0),
+                          max(in.strike - in.spot, 0.0), call_delta, put_delta});
     }
     return points;
 }
