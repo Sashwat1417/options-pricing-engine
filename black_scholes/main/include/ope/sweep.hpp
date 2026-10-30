@@ -20,9 +20,11 @@ struct SweepPoint {
     double put_theta;
     double call_gamma;
     double put_gamma;
+    double call_vega;  // per unit of σ
+    double put_vega;
 };
 
-// Prices (and delta, theta, gamma of) a call and a put at `steps` evenly spaced values of `axis` in [from, to].
+// Prices (and Greeks of) a call and a put at `steps` evenly spaced values of `axis` in [from, to].
 // base.type is ignored. Throws std::invalid_argument if steps < 2 or any point is invalid.
 [[nodiscard]] std::vector<SweepPoint> sweep(const OptionInputs& base, SweepAxis axis, double from,
                                             double to, int steps);

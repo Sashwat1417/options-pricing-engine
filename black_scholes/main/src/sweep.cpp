@@ -51,7 +51,7 @@ vector<SweepPoint> sweep(const OptionInputs& base, SweepAxis axis, double from, 
         points.push_back({x, call, put, max(in.spot - in.strike, 0.0),
                           max(in.strike - in.spot, 0.0), call_greeks.delta, put_greeks.delta,
                           call_greeks.theta, put_greeks.theta, call_greeks.gamma,
-                          put_greeks.gamma});
+                          put_greeks.gamma, call_greeks.vega, put_greeks.vega});
     }
     return points;
 }
