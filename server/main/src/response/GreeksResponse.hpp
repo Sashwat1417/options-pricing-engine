@@ -6,11 +6,11 @@
 
 namespace ope::server {
 
-// {"delta"}
+// {"delta", "theta"}; theta per year
 struct GreeksResponse {
     Greeks greeks;
 
-    nlohmann::json toJson() const { return {{"delta", greeks.delta}}; }
+    nlohmann::json toJson() const { return {{"delta", greeks.delta}, {"theta", greeks.theta}}; }
 };
 
 }  // namespace ope::server
