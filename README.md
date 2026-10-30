@@ -127,8 +127,8 @@ curl localhost:8080/api/v1/price -H 'Content-Type: application/json' \
 | `GET /version` | | `{"version": "0.2.1", "commit": "<deployed git sha>"}` |
 | `POST /api/v1/price` | `type, spot, strike, expiry, rate, vol` | `{"price": …}` |
 | `POST /api/v1/iv` | `type, spot, strike, expiry, rate, price` | `{"implied_vol": …}` |
-| `POST /api/v1/sweep` | `spot, strike, expiry, rate, vol, vary, from, to, steps` (`vol` not needed when `vary` is `vol`) | arrays `x, call, put, call_payoff, put_payoff, call_delta, put_delta, call_theta, put_theta, call_gamma, put_gamma` |
-| `POST /api/v1/greeks` | `type, spot, strike, expiry, rate, vol` | `{"delta": 0.5216…, "theta": −4.3054…, "gamma": 0.0655…}` (theta per year) |
+| `POST /api/v1/sweep` | `spot, strike, expiry, rate, vol, vary, from, to, steps` (`vol` not needed when `vary` is `vol`) | arrays `x, call, put, call_payoff, put_payoff, call_delta, put_delta, call_theta, put_theta, call_gamma, put_gamma, call_vega, put_vega` |
+| `POST /api/v1/greeks` | `type, spot, strike, expiry, rate, vol` | `{"delta": 0.5216…, "theta": −4.3054…, "gamma": 0.0655…, "vega": 12.105…}` (theta per year, vega per unit of σ) |
 
 Bad input returns `400 {"error": "..."}`. Bodies over 64 KB get `413`. Each request is logged as one JSON line with its duration.
 
