@@ -6,12 +6,15 @@
 
 namespace ope::server {
 
-// {"delta", "theta", "gamma"}; theta per year
+// {"delta", "theta", "gamma", "vega"}; theta per year, vega per unit of σ
 struct GreeksResponse {
     Greeks greeks;
 
     nlohmann::json toJson() const {
-        return {{"delta", greeks.delta}, {"theta", greeks.theta}, {"gamma", greeks.gamma}};
+        return {{"delta", greeks.delta},
+                {"theta", greeks.theta},
+                {"gamma", greeks.gamma},
+                {"vega", greeks.vega}};
     }
 };
 

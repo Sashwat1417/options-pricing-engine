@@ -93,6 +93,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .label { font: 12px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .value { font: 500 30px var(--f-mono); font-variant-numeric: tabular-nums; }
 .value.small { font-size: 22px; }
+.label .symbol { text-transform: none; }
 .tabs { display: flex; gap: 4px; }
 .tabs button {
   font: 500 14px var(--f-body);

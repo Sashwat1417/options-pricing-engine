@@ -45,6 +45,19 @@ double finite_difference_gamma(const OptionInputs& in) {
            (2.0 * h);
 }
 
+OptionInputs with_vol(OptionInputs in, double vol) {
+    in.volatility = vol;
+    return in;
+}
+
+// ν as the slope of price against σ.
+double finite_difference_vega(const OptionInputs& in) {
+    const double h = 1e-5;
+    return (ope::price(with_vol(in, in.volatility + h)) -
+            ope::price(with_vol(in, in.volatility - h))) /
+           (2.0 * h);
+}
+
 // Δ as the literal slope of the price curve.
 double finite_difference_delta(const OptionInputs& in) {
     const double h = 1e-4 * in.spot;
@@ -247,4 +260,72 @@ TEST(Gamma, IsZeroAtZeroVol) {
     auto in = with_spot(hull_ch19(), 55.0);
     in.volatility = 0.0;
     EXPECT_DOUBLE_EQ(greeks(in).gamma, 0.0);
+}
+
+TEST(Vega, MatchesHullCh19Example) {
+    EXPECT_NEAR(greeks(hull_ch19()).vega / 100.0, 0.121, 5e-4);
+    EXPECT_NEAR(greeks(hull_ch19()).vega, 12.105242754243843, 1e-10);
+}
+
+TEST(Vega, IsSlopeOfPriceAgainstVolatility) {
+    for (auto type : {OptionType::Call, OptionType::Put}) {
+        for (double s : {30.0, 45.0, 50.0, 55.0, 80.0}) {
+            for (double t : {0.05, 0.5, 2.0}) {
+                for (double vol : {0.1, 0.3, 0.8}) {
+                    const OptionInputs in{type, s, 50.0, t, 0.05, vol};
+                    const double vega = greeks(in).vega;
+                    EXPECT_NEAR(vega, finite_difference_vega(in), 1e-5 + 1e-6 * vega)
+                        << (type == OptionType::Call ? "call" : "put") << " S=" << s
+                        << " T=" << t << " vol=" << vol;
+                }
+            }
+        }
+    }
+}
+
+TEST(Vega, IsSameForCallAndPut) {
+    for (double s : {30.0, 49.0, 50.0, 70.0}) {
+        EXPECT_DOUBLE_EQ(greeks(with_spot(hull_ch19(OptionType::Call), s)).vega,
+                         greeks(with_spot(hull_ch19(OptionType::Put), s)).vega)
+            << "S=" << s;
+    }
+}
+
+TEST(Vega, IsPositiveAndGrowsWithTimeAtTheMoney) {
+    for (double s = 20.0; s <= 100.0; s += 5.0) {
+        EXPECT_GT(greeks(with_spot(hull_ch19(), s)).vega, 0.0) << "S=" << s;
+    }
+    const auto at_the_money = with_spot(hull_ch19(), 50.0);
+    EXPECT_LT(greeks(with_expiry(at_the_money, 0.05)).vega,
+              greeks(with_expiry(at_the_money, 1.0)).vega);
+}
+
+TEST(Vega, DeepInAndOutOfTheMoneyIsNearZero) {
+    EXPECT_NEAR(greeks(with_spot(hull_ch19(), 5.0)).vega, 0.0, 1e-10);
+    EXPECT_NEAR(greeks(with_spot(hull_ch19(), 200.0)).vega, 0.0, 1e-10);
+}
+
+TEST(Vega, IsZeroAtZeroVol) {
+    EXPECT_DOUBLE_EQ(greeks(with_vol(hull_ch19(), 0.0)).vega, 0.0);
+}
+
+// Hull 19.7: the Black-Scholes PDE written in Greeks, Θ + rSΔ + ½σ²S²Γ = rV.
+TEST(GreeksRelationship, SatisfiesBlackScholesPde) {
+    for (auto type : {OptionType::Call, OptionType::Put}) {
+        for (double s : {30.0, 45.0, 50.0, 55.0, 80.0}) {
+            for (double t : {0.05, 0.5, 2.0}) {
+                for (double r : {0.0, 0.05, 0.10}) {
+                    for (double vol : {0.1, 0.3, 0.8}) {
+                        const OptionInputs in{type, s, 50.0, t, r, vol};
+                        const auto g = greeks(in);
+                        const double lhs =
+                            g.theta + r * s * g.delta + 0.5 * vol * vol * s * s * g.gamma;
+                        EXPECT_NEAR(lhs, r * ope::price(in), 1e-9)
+                            << (type == OptionType::Call ? "call" : "put") << " S=" << s
+                            << " T=" << t << " r=" << r << " vol=" << vol;
+                    }
+                }
+            }
+        }
+    }
 }

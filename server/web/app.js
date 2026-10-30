@@ -56,6 +56,22 @@ const GREEKS = {
       + "Largest at the money and near expiry, where a delta hedge goes stale fastest. Shares have "
       + "Γ = 0, so only options can hedge it.",
   },
+  vega: {
+    name: "Vega ν",
+    symbol: "ν",
+    key: "vega",
+    scale: 1 / 100,
+    digits: 4,
+    yLabel: "Vega ν (price change per 1% vol)",
+    yRange: { min: 0 },
+    hints: {
+      call: "price change if implied vol rises 1%",
+      put: "price change if implied vol rises 1% (same as the call)",
+    },
+    note: "ν = ∂price/∂σ, shown per 1 percentage point of volatility (the API returns it per "
+      + "unit of σ: × 100). Largest at the money and for long-dated options. Shares have "
+      + "ν = 0, so only options can hedge it.",
+  },
 };
 
 // The chart for each view, built from the active Greek on the Greeks tab.
@@ -225,8 +241,10 @@ const BLANK = { "call-price": "–", "put-price": "–", "call-greek": "–", "p
 function showGreekLabels() {
   const g = GREEKS[greek];
   const lower = g.name.split(" ")[0].toLowerCase();
-  $("call-greek-label").textContent = `Call ${lower} ${g.symbol}`;
-  $("put-greek-label").textContent = `Put ${lower} ${g.symbol}`;
+  // Keep the symbol out of the label's uppercase styling: an uppercase ν renders as "N".
+  const symbol = `<span class="symbol">${g.symbol}</span>`;
+  $("call-greek-label").innerHTML = `Call ${lower} ${symbol}`;
+  $("put-greek-label").innerHTML = `Put ${lower} ${symbol}`;
   $("call-greek-hint").textContent = g.hints.call;
   $("put-greek-hint").textContent = g.hints.put;
   $("greek-chart-title").textContent = `${g.name} as one input varies`;
