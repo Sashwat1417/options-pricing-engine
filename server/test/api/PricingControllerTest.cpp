@@ -97,6 +97,7 @@ TEST_F(PricingControllerTest, GreeksReturnsAllGreeks) {
     EXPECT_NEAR(body.at("theta").get<double>(), -1.853005672196868, 1e-11);
     EXPECT_NEAR(body.at("gamma").get<double>(), 0.06554537725247868, 1e-12);
     EXPECT_NEAR(body.at("vega").get<double>(), 12.105242754243843, 1e-10);
+    EXPECT_NEAR(body.at("rho").get<double>(), -9.95716587794938, 1e-10);
 }
 
 TEST_F(PricingControllerTest, MalformedJsonIs400) {

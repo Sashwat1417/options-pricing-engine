@@ -72,6 +72,22 @@ const GREEKS = {
       + "unit of σ: × 100). Largest at the money and for long-dated options. Shares have "
       + "ν = 0, so only options can hedge it.",
   },
+  rho: {
+    name: "Rho ρ",
+    symbol: "ρ",
+    key: "rho",
+    scale: 1 / 100,
+    digits: 4,
+    yLabel: "Rho ρ (price change per 1% rate)",
+    yRange: {},
+    hints: {
+      call: "price change if the risk-free rate rises 1%",
+      put: "price change if the risk-free rate rises 1%",
+    },
+    note: "ρ = ∂price/∂r, shown per 1 percentage point of interest rate (the API returns it per "
+      + "unit of r: × 100). Calls gain when rates rise (the strike you pay later is worth less "
+      + "today); puts lose. Small for short-dated options, since it grows with T.",
+  },
 };
 
 // The chart for each view, built from the active Greek on the Greeks tab.
