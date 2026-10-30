@@ -69,7 +69,12 @@ function color(name) {
 }
 
 function axisLabel() {
-  return { spot: "Spot price S", vol: "Volatility σ", expiry: "Time to expiry (years)" }[axis];
+  return { spot: "Spot price S", vol: "Volatility σ", expiry: "Days to expiry (time passes →)" }[axis];
+}
+
+// API sends years; the expiry axis shows days, matching the input box.
+function toAxisUnits(x) {
+  return axis === "expiry" ? x * 365 : x;
 }
 
 function line(label, data, colorName, dashed) {
@@ -89,7 +94,7 @@ function line(label, data, colorName, dashed) {
 // current: the x of today's inputs; now: {call, put} values of this chart's series there.
 function drawChart(name, sweep, current, now) {
   const spec = CHARTS[name];
-  const xy = (ys) => sweep.x.map((x, i) => ({ x, y: ys[i] }));
+  const xy = (ys) => sweep.x.map((x, i) => ({ x: toAxisUnits(x), y: ys[i] }));
   const datasets = [
     line(`Call${spec.suffix}`, xy(sweep[spec.call]), "--call", false),
     line(`Put${spec.suffix}`, xy(sweep[spec.put]), "--put", false),
@@ -101,7 +106,7 @@ function drawChart(name, sweep, current, now) {
   datasets.push({
     type: "scatter",
     label: "Current",
-    data: [{ x: current, y: now.call }, { x: current, y: now.put }],
+    data: [{ x: toAxisUnits(current), y: now.call }, { x: toAxisUnits(current), y: now.put }],
     backgroundColor: [color("--call"), color("--put")],
     borderColor: color("--surface"),
     borderWidth: 2,
@@ -121,8 +126,12 @@ function drawChart(name, sweep, current, now) {
       },
       tooltip: {
         callbacks: {
-          title: (items) => `${axisLabel()}: ${percent ? (items[0].parsed.x * 100).toFixed(1) + "%"
-                                                        : items[0].parsed.x.toFixed(2)}`,
+          title: (items) => {
+            const x = items[0].parsed.x;
+            if (percent) return `Volatility σ: ${(x * 100).toFixed(1)}%`;
+            if (axis === "expiry") return `Days to expiry: ${x.toFixed(0)}`;
+            return `Spot price S: ${x.toFixed(2)}`;
+          },
           label: (item) => `${item.dataset.label}: ${item.parsed.y.toFixed(4)}`,
         },
       },
@@ -130,6 +139,10 @@ function drawChart(name, sweep, current, now) {
     scales: {
       x: {
         type: "linear",
+        // Expiry reads left to right as time passing: far from expiry -> expiry (0 days).
+        reverse: axis === "expiry",
+        min: toAxisUnits(sweep.x[0]),
+        max: toAxisUnits(sweep.x[sweep.x.length - 1]),
         title: { display: true, text: axisLabel(), color: ink },
         ticks: { color: ink, callback: (v) => (percent ? `${Math.round(v * 100)}%` : v) },
         grid: { display: false },
