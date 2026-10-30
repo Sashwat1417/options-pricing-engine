@@ -1,6 +1,7 @@
 #include "ope/sweep.hpp"
 
 #include "ope/black_scholes.hpp"
+#include "ope/greeks.hpp"
 
 #include <gtest/gtest.h>
 
@@ -69,4 +70,17 @@ TEST(Sweep, RejectsFewerThanTwoSteps) {
 
 TEST(Sweep, RejectsInvalidPoints) {
     EXPECT_THROW((void)sweep(hull_example(), SweepAxis::Spot, -10.0, 50.0, 3), invalid_argument);
+}
+
+TEST(Sweep, DeltaMatchesGreeksAtEachPoint) {
+    const auto points = sweep(hull_example(), SweepAxis::Spot, 30.0, 50.0, 5);
+    ASSERT_EQ(points.size(), 5u);
+    for (const auto& p : points) {
+        auto in = hull_example();
+        in.spot = p.x;
+        in.type = OptionType::Call;
+        EXPECT_DOUBLE_EQ(p.call_delta, ope::greeks(in).delta) << "S=" << p.x;
+        in.type = OptionType::Put;
+        EXPECT_DOUBLE_EQ(p.put_delta, ope::greeks(in).delta) << "S=" << p.x;
+    }
 }

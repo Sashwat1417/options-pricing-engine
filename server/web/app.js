@@ -3,9 +3,33 @@
 
 const $ = (id) => document.getElementById(id);
 const fields = ["spot", "strike", "days", "rate", "vol"].map($);
+const VIEWS = ["pricing", "greeks", "iv"];
+let view = "pricing";
 let axis = "spot";
 Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
-let chart = null;
+const charts = {};
+
+// Chart per view. A new Greek becomes one more entry and its own chart or selector.
+const CHARTS = {
+  pricing: {
+    canvas: "price-chart",
+    yLabel: "Option price",
+    call: "call",
+    put: "put",
+    suffix: "",
+    payoffs: true,
+    yRange: {},
+  },
+  greeks: {
+    canvas: "greek-chart",
+    yLabel: "Delta Δ (∂price/∂S)",
+    call: "call_delta",
+    put: "put_delta",
+    suffix: " Δ",
+    payoffs: false,
+    yRange: { min: -1, max: 1 },
+  },
+};
 
 // Form units -> API units: days -> years, % -> decimal.
 function marketInputs() {
@@ -62,20 +86,22 @@ function line(label, data, colorName, dashed) {
   };
 }
 
-function drawChart(sweep, current, prices) {
+// current: the x of today's inputs; now: {call, put} values of this chart's series there.
+function drawChart(name, sweep, current, now) {
+  const spec = CHARTS[name];
   const xy = (ys) => sweep.x.map((x, i) => ({ x, y: ys[i] }));
   const datasets = [
-    line("Call", xy(sweep.call), "--call", false),
-    line("Put", xy(sweep.put), "--put", false),
+    line(`Call${spec.suffix}`, xy(sweep[spec.call]), "--call", false),
+    line(`Put${spec.suffix}`, xy(sweep[spec.put]), "--put", false),
   ];
-  if (axis === "spot") {
+  if (spec.payoffs && axis === "spot") {
     datasets.push(line("Call payoff at expiry", xy(sweep.call_payoff), "--payoff", true));
     datasets.push(line("Put payoff at expiry", xy(sweep.put_payoff), "--payoff", true));
   }
   datasets.push({
     type: "scatter",
     label: "Current",
-    data: [{ x: current, y: prices.call }, { x: current, y: prices.put }],
+    data: [{ x: current, y: now.call }, { x: current, y: now.put }],
     backgroundColor: [color("--call"), color("--put")],
     borderColor: color("--surface"),
     borderWidth: 2,
@@ -109,16 +135,18 @@ function drawChart(sweep, current, prices) {
         grid: { display: false },
       },
       y: {
-        title: { display: true, text: "Option price", color: ink },
+        title: { display: true, text: spec.yLabel, color: ink },
         ticks: { color: ink },
-        grid: { color: grid },
+        // Highlight zero on the Greeks chart: calls sit above it, puts below.
+        grid: { color: (ctx) => (ctx.tick.value === 0 && !spec.payoffs ? ink : grid) },
         beginAtZero: true,
+        ...spec.yRange,
       },
     },
   };
 
-  if (chart) chart.destroy();
-  chart = new Chart($("chart"), { type: "line", data: { datasets }, options });
+  if (charts[name]) charts[name].destroy();
+  charts[name] = new Chart($(spec.canvas), { type: "line", data: { datasets }, options });
 }
 
 async function refreshIv(m) {
@@ -136,26 +164,44 @@ async function refreshIv(m) {
   }
 }
 
+function setReadouts(text) {
+  for (const [id, value] of Object.entries(text)) $(id).textContent = value;
+}
+
+const BLANK = { "call-price": "–", "put-price": "–", "call-delta": "–", "put-delta": "–" };
+
 async function refresh() {
   const m = marketInputs();
+  if (view === "iv") {
+    showError($("error"), "");
+    return refreshIv(m);
+  }
   try {
-    const [call, put] = await Promise.all([
+    const [callPrice, putPrice, callGreeks, putGreeks] = await Promise.all([
       api("/api/v1/price", { ...m, type: "call" }),
       api("/api/v1/price", { ...m, type: "put" }),
+      api("/api/v1/greeks", { ...m, type: "call" }),
+      api("/api/v1/greeks", { ...m, type: "put" }),
     ]);
-    $("call-price").textContent = call.price.toFixed(4);
-    $("put-price").textContent = put.price.toFixed(4);
+    setReadouts({
+      "call-price": callPrice.price.toFixed(4),
+      "put-price": putPrice.price.toFixed(4),
+      "call-delta": callGreeks.delta.toFixed(4),
+      "put-delta": putGreeks.delta.toFixed(4),
+    });
     showError($("error"), "");
 
+    // Chart.js can't size a hidden canvas, so only the visible view's chart is drawn.
     const sweep = await api("/api/v1/sweep", { ...m, vary: axis, ...sweepRange(m), steps: 121 });
     const current = { spot: m.spot, vol: m.vol, expiry: m.expiry }[axis];
-    drawChart(sweep, current, { call: call.price, put: put.price });
+    const now = view === "pricing"
+      ? { call: callPrice.price, put: putPrice.price }
+      : { call: callGreeks.delta, put: putGreeks.delta };
+    drawChart(view, sweep, current, now);
   } catch (e) {
-    $("call-price").textContent = "–";
-    $("put-price").textContent = "–";
+    setReadouts(BLANK);
     showError($("error"), e.message);
   }
-  refreshIv(m);
 }
 
 let timer = null;
@@ -164,17 +210,35 @@ function scheduleRefresh() {
   timer = setTimeout(refresh, 150);
 }
 
+function showView(name) {
+  view = VIEWS.includes(name) ? name : "pricing";
+  document.querySelectorAll(".tabs button").forEach((b) =>
+    b.setAttribute("aria-selected", String(b.dataset.view === view)));
+  for (const v of VIEWS) $(`view-${v}`).hidden = v !== view;
+  refresh();
+}
+
 fields.forEach((f) => f.addEventListener("input", scheduleRefresh));
 $("iv-type").addEventListener("change", () => refreshIv(marketInputs()));
 $("iv-price").addEventListener("input", () => refreshIv(marketInputs()));
+
+// The Spot / Volatility / Expiry choice is shared by both charts.
 document.querySelectorAll(".segmented button").forEach((btn) => {
   btn.addEventListener("click", () => {
     axis = btn.dataset.axis;
     document.querySelectorAll(".segmented button").forEach((b) =>
-      b.setAttribute("aria-selected", String(b === btn)));
+      b.setAttribute("aria-selected", String(b.dataset.axis === axis)));
     refresh();
+  });
+});
+
+document.querySelectorAll(".tabs button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    try { history.replaceState(null, "", `#${btn.dataset.view}`); } catch (e) {}
+    showView(btn.dataset.view);
   });
 });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", refresh);
 
-refresh();
+// Deep link to a tab: /#pricing, /#greeks, /#iv.
+showView(location.hash.slice(1));

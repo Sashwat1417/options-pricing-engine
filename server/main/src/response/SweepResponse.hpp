@@ -9,7 +9,7 @@
 
 namespace ope::server {
 
-// {"vary", "x": [...], "call": [...], "put": [...], "call_payoff": [...], "put_payoff": [...]}
+// {"vary", "x", "call", "put", "call_payoff", "put_payoff", "call_delta", "put_delta"}, arrays
 struct SweepResponse {
     std::string vary;
     std::vector<SweepPoint> points;

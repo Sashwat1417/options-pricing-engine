@@ -2,6 +2,7 @@
 
 add_library(ope_black_scholes
     main/src/black_scholes.cpp
+    main/src/greeks.cpp
     main/src/implied_vol.cpp
     main/src/option.cpp
     main/src/sweep.cpp
@@ -23,6 +24,7 @@ ope_enable_sanitizers(ope_black_scholes)
 if(OPE_BUILD_TESTS)
     add_executable(black_scholes_tests
         test/test_black_scholes.cpp
+        test/test_greeks.cpp
         test/test_implied_vol.cpp
         test/test_normal.cpp
         test/test_option.cpp

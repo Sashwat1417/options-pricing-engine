@@ -54,6 +54,9 @@ void PricingController::registerRoutes(httplib::Server& server) const {
     postJson(server, "/api/v1/sweep", [this](const json& body) {
         return service_.sweep(SweepRequest::fromJson(body)).toJson();
     });
+    postJson(server, "/api/v1/greeks", [this](const json& body) {
+        return service_.greeks(GreeksRequest::fromJson(body)).toJson();
+    });
 }
 
 }  // namespace ope::server
