@@ -72,7 +72,7 @@ TEST(Sweep, RejectsInvalidPoints) {
     EXPECT_THROW((void)sweep(hull_example(), SweepAxis::Spot, -10.0, 50.0, 3), invalid_argument);
 }
 
-TEST(Sweep, DeltaMatchesGreeksAtEachPoint) {
+TEST(Sweep, GreeksMatchAtEachPoint) {
     const auto points = sweep(hull_example(), SweepAxis::Spot, 30.0, 50.0, 5);
     ASSERT_EQ(points.size(), 5u);
     for (const auto& p : points) {
@@ -80,7 +80,15 @@ TEST(Sweep, DeltaMatchesGreeksAtEachPoint) {
         in.spot = p.x;
         in.type = OptionType::Call;
         EXPECT_DOUBLE_EQ(p.call_delta, ope::greeks(in).delta) << "S=" << p.x;
+        EXPECT_DOUBLE_EQ(p.call_theta, ope::greeks(in).theta) << "S=" << p.x;
+        EXPECT_DOUBLE_EQ(p.call_gamma, ope::greeks(in).gamma) << "S=" << p.x;
+        EXPECT_DOUBLE_EQ(p.call_vega, ope::greeks(in).vega) << "S=" << p.x;
+        EXPECT_DOUBLE_EQ(p.call_rho, ope::greeks(in).rho) << "S=" << p.x;
         in.type = OptionType::Put;
         EXPECT_DOUBLE_EQ(p.put_delta, ope::greeks(in).delta) << "S=" << p.x;
+        EXPECT_DOUBLE_EQ(p.put_theta, ope::greeks(in).theta) << "S=" << p.x;
+        EXPECT_DOUBLE_EQ(p.put_gamma, ope::greeks(in).gamma) << "S=" << p.x;
+        EXPECT_DOUBLE_EQ(p.put_vega, ope::greeks(in).vega) << "S=" << p.x;
+        EXPECT_DOUBLE_EQ(p.put_rho, ope::greeks(in).rho) << "S=" << p.x;
     }
 }

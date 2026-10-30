@@ -43,13 +43,16 @@ vector<SweepPoint> sweep(const OptionInputs& base, SweepAxis axis, double from, 
 
         in.type = OptionType::Call;
         const double call = price(in);
-        const double call_delta = greeks(in).delta;
+        const Greeks call_greeks = greeks(in);
         in.type = OptionType::Put;
         const double put = price(in);
-        const double put_delta = greeks(in).delta;
+        const Greeks put_greeks = greeks(in);
 
         points.push_back({x, call, put, max(in.spot - in.strike, 0.0),
-                          max(in.strike - in.spot, 0.0), call_delta, put_delta});
+                          max(in.strike - in.spot, 0.0), call_greeks.delta, put_greeks.delta,
+                          call_greeks.theta, put_greeks.theta, call_greeks.gamma,
+                          put_greeks.gamma, call_greeks.vega, put_greeks.vega, call_greeks.rho,
+                          put_greeks.rho});
     }
     return points;
 }

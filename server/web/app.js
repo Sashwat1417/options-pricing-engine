@@ -6,30 +6,100 @@ const fields = ["spot", "strike", "days", "rate", "vol"].map($);
 const VIEWS = ["pricing", "greeks", "iv"];
 let view = "pricing";
 let axis = "spot";
+let greek = "delta";
 Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
 const charts = {};
 
-// Chart per view. A new Greek becomes one more entry and its own chart or selector.
-const CHARTS = {
-  pricing: {
-    canvas: "price-chart",
-    yLabel: "Option price",
-    call: "call",
-    put: "put",
-    suffix: "",
-    payoffs: true,
-    yRange: {},
-  },
-  greeks: {
-    canvas: "greek-chart",
+// One entry per Greek sub-tab. A new Greek is one more entry plus a sub-tab button.
+// `scale` converts the API's units for display (theta: per year -> per day).
+const GREEKS = {
+  delta: {
+    name: "Delta Δ",
+    symbol: "Δ",
+    key: "delta",
+    scale: 1,
+    digits: 4,
     yLabel: "Delta Δ (∂price/∂S)",
-    call: "call_delta",
-    put: "put_delta",
-    suffix: " Δ",
-    payoffs: false,
     yRange: { min: -1, max: 1 },
+    hints: { call: "shares to hold per call sold", put: "shares to short per put sold" },
+    note: "Δ = ∂price/∂S, the slope of the price curve. Δ<sub>put</sub> = Δ<sub>call</sub> − 1.",
+  },
+  theta: {
+    name: "Theta Θ",
+    symbol: "Θ",
+    key: "theta",
+    scale: 1 / 365,
+    digits: 5,
+    yLabel: "Theta Θ (price change per day)",
+    yRange: {},
+    hints: {
+      call: "price change per day as time passes",
+      put: "price change per day as time passes",
+    },
+    note: "Θ = ∂price/∂t, shown per calendar day (Hull quotes it per year: × 365). "
+      + "Negative means the option loses value each day; time passing is certain, so it is a "
+      + "known cost, not a risk to hedge.",
+  },
+  gamma: {
+    name: "Gamma Γ",
+    symbol: "Γ",
+    key: "gamma",
+    scale: 1,
+    digits: 5,
+    yLabel: "Gamma Γ (∂Δ/∂S)",
+    yRange: { min: 0 },
+    hints: {
+      call: "change in Δ per ₹1 move in S",
+      put: "change in Δ per ₹1 move in S (same as the call)",
+    },
+    note: "Γ = ∂Δ/∂S = ∂²price/∂S², how fast delta changes, i.e. how much the price curve bends. "
+      + "Largest at the money and near expiry, where a delta hedge goes stale fastest. Shares have "
+      + "Γ = 0, so only options can hedge it.",
+  },
+  vega: {
+    name: "Vega ν",
+    symbol: "ν",
+    key: "vega",
+    scale: 1 / 100,
+    digits: 4,
+    yLabel: "Vega ν (price change per 1% vol)",
+    yRange: { min: 0 },
+    hints: {
+      call: "price change if implied vol rises 1%",
+      put: "price change if implied vol rises 1% (same as the call)",
+    },
+    note: "ν = ∂price/∂σ, shown per 1 percentage point of volatility (the API returns it per "
+      + "unit of σ: × 100). Largest at the money and for long-dated options. Shares have "
+      + "ν = 0, so only options can hedge it.",
+  },
+  rho: {
+    name: "Rho ρ",
+    symbol: "ρ",
+    key: "rho",
+    scale: 1 / 100,
+    digits: 4,
+    yLabel: "Rho ρ (price change per 1% rate)",
+    yRange: {},
+    hints: {
+      call: "price change if the risk-free rate rises 1%",
+      put: "price change if the risk-free rate rises 1%",
+    },
+    note: "ρ = ∂price/∂r, shown per 1 percentage point of interest rate (the API returns it per "
+      + "unit of r: × 100). Calls gain when rates rise (the strike you pay later is worth less "
+      + "today); puts lose. Small for short-dated options, since it grows with T.",
   },
 };
+
+// The chart for each view, built from the active Greek on the Greeks tab.
+function chartSpec(name) {
+  if (name === "pricing") {
+    return { canvas: "price-chart", yLabel: "Option price", call: "call", put: "put", scale: 1,
+             suffix: "", payoffs: true, yRange: {} };
+  }
+  const g = GREEKS[greek];
+  return { canvas: "greek-chart", yLabel: g.yLabel, call: `call_${g.key}`, put: `put_${g.key}`,
+           scale: g.scale, suffix: ` ${g.symbol}`, payoffs: false, yRange: g.yRange };
+}
 
 // Form units -> API units: days -> years, % -> decimal.
 function marketInputs() {
@@ -59,7 +129,8 @@ function showError(el, message) {
 }
 
 function sweepRange(m) {
-  if (axis === "spot") return { from: Math.max(m.strike * 0.4, 0.01), to: m.strike * 1.6 };
+  // Spot from just above 0 to 3K: wide enough to see both tails (e.g. 0-150 for K = 50).
+  if (axis === "spot") return { from: m.strike * 0.01, to: m.strike * 3 };
   if (axis === "vol") return { from: 0.01, to: 1.0 };
   return { from: 1 / 365, to: 2.0 };
 }
@@ -69,7 +140,12 @@ function color(name) {
 }
 
 function axisLabel() {
-  return { spot: "Spot price S", vol: "Volatility σ", expiry: "Time to expiry (years)" }[axis];
+  return { spot: "Spot price S", vol: "Volatility σ", expiry: "Days to expiry (time passes →)" }[axis];
+}
+
+// API sends years; the expiry axis shows days, matching the input box.
+function toAxisUnits(x) {
+  return axis === "expiry" ? x * 365 : x;
 }
 
 function line(label, data, colorName, dashed) {
@@ -88,8 +164,8 @@ function line(label, data, colorName, dashed) {
 
 // current: the x of today's inputs; now: {call, put} values of this chart's series there.
 function drawChart(name, sweep, current, now) {
-  const spec = CHARTS[name];
-  const xy = (ys) => sweep.x.map((x, i) => ({ x, y: ys[i] }));
+  const spec = chartSpec(name);
+  const xy = (ys) => sweep.x.map((x, i) => ({ x: toAxisUnits(x), y: ys[i] * spec.scale }));
   const datasets = [
     line(`Call${spec.suffix}`, xy(sweep[spec.call]), "--call", false),
     line(`Put${spec.suffix}`, xy(sweep[spec.put]), "--put", false),
@@ -101,7 +177,7 @@ function drawChart(name, sweep, current, now) {
   datasets.push({
     type: "scatter",
     label: "Current",
-    data: [{ x: current, y: now.call }, { x: current, y: now.put }],
+    data: [{ x: toAxisUnits(current), y: now.call }, { x: toAxisUnits(current), y: now.put }],
     backgroundColor: [color("--call"), color("--put")],
     borderColor: color("--surface"),
     borderWidth: 2,
@@ -121,15 +197,23 @@ function drawChart(name, sweep, current, now) {
       },
       tooltip: {
         callbacks: {
-          title: (items) => `${axisLabel()}: ${percent ? (items[0].parsed.x * 100).toFixed(1) + "%"
-                                                        : items[0].parsed.x.toFixed(2)}`,
-          label: (item) => `${item.dataset.label}: ${item.parsed.y.toFixed(4)}`,
+          title: (items) => {
+            const x = items[0].parsed.x;
+            if (percent) return `Volatility σ: ${(x * 100).toFixed(1)}%`;
+            if (axis === "expiry") return `Days to expiry: ${x.toFixed(0)}`;
+            return `Spot price S: ${x.toFixed(2)}`;
+          },
+          label: (item) => `${item.dataset.label}: ${item.parsed.y.toFixed(spec.payoffs ? 4 : 5)}`,
         },
       },
     },
     scales: {
       x: {
         type: "linear",
+        // Expiry reads left to right as time passing: far from expiry -> expiry (0 days).
+        reverse: axis === "expiry",
+        min: toAxisUnits(sweep.x[0]),
+        max: toAxisUnits(sweep.x[sweep.x.length - 1]),
         title: { display: true, text: axisLabel(), color: ink },
         ticks: { color: ink, callback: (v) => (percent ? `${Math.round(v * 100)}%` : v) },
         grid: { display: false },
@@ -168,7 +252,20 @@ function setReadouts(text) {
   for (const [id, value] of Object.entries(text)) $(id).textContent = value;
 }
 
-const BLANK = { "call-price": "–", "put-price": "–", "call-delta": "–", "put-delta": "–" };
+const BLANK = { "call-price": "–", "put-price": "–", "call-greek": "–", "put-greek": "–" };
+
+function showGreekLabels() {
+  const g = GREEKS[greek];
+  const lower = g.name.split(" ")[0].toLowerCase();
+  // Keep the symbol out of the label's uppercase styling: an uppercase ν renders as "N".
+  const symbol = `<span class="symbol">${g.symbol}</span>`;
+  $("call-greek-label").innerHTML = `Call ${lower} ${symbol}`;
+  $("put-greek-label").innerHTML = `Put ${lower} ${symbol}`;
+  $("call-greek-hint").textContent = g.hints.call;
+  $("put-greek-hint").textContent = g.hints.put;
+  $("greek-chart-title").textContent = `${g.name} as one input varies`;
+  $("greek-note").innerHTML = g.note;
+}
 
 async function refresh() {
   const m = marketInputs();
@@ -183,20 +280,21 @@ async function refresh() {
       api("/api/v1/greeks", { ...m, type: "call" }),
       api("/api/v1/greeks", { ...m, type: "put" }),
     ]);
+    const g = GREEKS[greek];
     setReadouts({
       "call-price": callPrice.price.toFixed(4),
       "put-price": putPrice.price.toFixed(4),
-      "call-delta": callGreeks.delta.toFixed(4),
-      "put-delta": putGreeks.delta.toFixed(4),
+      "call-greek": (callGreeks[g.key] * g.scale).toFixed(g.digits),
+      "put-greek": (putGreeks[g.key] * g.scale).toFixed(g.digits),
     });
     showError($("error"), "");
 
     // Chart.js can't size a hidden canvas, so only the visible view's chart is drawn.
-    const sweep = await api("/api/v1/sweep", { ...m, vary: axis, ...sweepRange(m), steps: 121 });
+    const sweep = await api("/api/v1/sweep", { ...m, vary: axis, ...sweepRange(m), steps: 301 });
     const current = { spot: m.spot, vol: m.vol, expiry: m.expiry }[axis];
     const now = view === "pricing"
       ? { call: callPrice.price, put: putPrice.price }
-      : { call: callGreeks.delta, put: putGreeks.delta };
+      : { call: callGreeks[g.key] * g.scale, put: putGreeks[g.key] * g.scale };
     drawChart(view, sweep, current, now);
   } catch (e) {
     setReadouts(BLANK);
@@ -232,6 +330,17 @@ document.querySelectorAll(".segmented button").forEach((btn) => {
   });
 });
 
+document.querySelectorAll(".subtabs button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    greek = btn.dataset.greek;
+    document.querySelectorAll(".subtabs button").forEach((b) =>
+      b.setAttribute("aria-selected", String(b === btn)));
+    try { history.replaceState(null, "", `#greeks-${greek}`); } catch (e) {}
+    showGreekLabels();
+    refresh();
+  });
+});
+
 document.querySelectorAll(".tabs button").forEach((btn) => {
   btn.addEventListener("click", () => {
     try { history.replaceState(null, "", `#${btn.dataset.view}`); } catch (e) {}
@@ -240,5 +349,12 @@ document.querySelectorAll(".tabs button").forEach((btn) => {
 });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", refresh);
 
-// Deep link to a tab: /#pricing, /#greeks, /#iv.
-showView(location.hash.slice(1));
+// Deep link to a tab or Greek: /#pricing, /#greeks, /#greeks-theta, /#iv.
+const [linkedView, linkedGreek] = location.hash.slice(1).split("-");
+if (linkedGreek in GREEKS) {
+  greek = linkedGreek;
+  document.querySelectorAll(".subtabs button").forEach((b) =>
+    b.setAttribute("aria-selected", String(b.dataset.greek === greek)));
+}
+showGreekLabels();
+showView(linkedView);
