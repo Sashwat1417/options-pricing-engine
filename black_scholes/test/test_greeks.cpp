@@ -58,6 +58,18 @@ double finite_difference_vega(const OptionInputs& in) {
            (2.0 * h);
 }
 
+OptionInputs with_rate(OptionInputs in, double r) {
+    in.rate = r;
+    return in;
+}
+
+// ρ as the slope of price against r.
+double finite_difference_rho(const OptionInputs& in) {
+    const double h = 1e-6;
+    return (ope::price(with_rate(in, in.rate + h)) - ope::price(with_rate(in, in.rate - h))) /
+           (2.0 * h);
+}
+
 // Δ as the literal slope of the price curve.
 double finite_difference_delta(const OptionInputs& in) {
     const double h = 1e-4 * in.spot;
@@ -307,6 +319,65 @@ TEST(Vega, DeepInAndOutOfTheMoneyIsNearZero) {
 
 TEST(Vega, IsZeroAtZeroVol) {
     EXPECT_DOUBLE_EQ(greeks(with_vol(hull_ch19(), 0.0)).vega, 0.0);
+}
+
+TEST(Rho, MatchesHullCh19Example) {
+    EXPECT_NEAR(greeks(hull_ch19()).rho / 100.0, 0.0891, 5e-5);
+    EXPECT_NEAR(greeks(hull_ch19()).rho, 8.906574098800945, 1e-10);
+    EXPECT_NEAR(greeks(hull_ch19(OptionType::Put)).rho, -9.95716587794938, 1e-10);
+}
+
+TEST(Rho, IsSlopeOfPriceAgainstRate) {
+    for (auto type : {OptionType::Call, OptionType::Put}) {
+        for (double s : {30.0, 45.0, 50.0, 55.0, 80.0}) {
+            for (double t : {0.05, 0.5, 2.0}) {
+                for (double vol : {0.1, 0.3, 0.8}) {
+                    const OptionInputs in{type, s, 50.0, t, 0.05, vol};
+                    EXPECT_NEAR(greeks(in).rho, finite_difference_rho(in), 1e-5)
+                        << (type == OptionType::Call ? "call" : "put") << " S=" << s
+                        << " T=" << t << " vol=" << vol;
+                }
+            }
+        }
+    }
+}
+
+TEST(Rho, CallMinusPutIsDiscountedStrikeTimesExpiry) {
+    for (double s : {30.0, 49.0, 50.0, 70.0}) {
+        const auto call = with_spot(hull_ch19(OptionType::Call), s);
+        const auto put = with_spot(hull_ch19(OptionType::Put), s);
+        const double expected =
+            call.strike * call.time_to_expiry * exp(-call.rate * call.time_to_expiry);
+        EXPECT_NEAR(greeks(call).rho - greeks(put).rho, expected, 1e-10) << "S=" << s;
+    }
+}
+
+TEST(Rho, CallPositivePutNegative) {
+    for (double s = 20.0; s <= 100.0; s += 5.0) {
+        EXPECT_GT(greeks(with_spot(hull_ch19(), s)).rho, 0.0) << "S=" << s;
+        EXPECT_LT(greeks(with_spot(hull_ch19(OptionType::Put), s)).rho, 0.0) << "S=" << s;
+    }
+}
+
+TEST(Rho, GrowsWithTimeToExpiry) {
+    const auto at_the_money = with_spot(hull_ch19(), 50.0);
+    EXPECT_LT(greeks(with_expiry(at_the_money, 0.1)).rho,
+              greeks(with_expiry(at_the_money, 2.0)).rho);
+}
+
+TEST(Rho, IsDiscountedStrikeTimesExpiryWhenInTheMoneyAtZeroVol) {
+    auto itm_call = with_vol(with_spot(hull_ch19(), 55.0), 0.0);
+    const double kt_df =
+        itm_call.strike * itm_call.time_to_expiry * exp(-itm_call.rate * itm_call.time_to_expiry);
+    EXPECT_DOUBLE_EQ(greeks(itm_call).rho, kt_df);
+    EXPECT_NEAR(greeks(itm_call).rho, finite_difference_rho(itm_call), 1e-6);
+
+    auto otm_call = with_spot(itm_call, 45.0);
+    EXPECT_DOUBLE_EQ(greeks(otm_call).rho, 0.0);
+
+    auto itm_put = otm_call;
+    itm_put.type = OptionType::Put;
+    EXPECT_DOUBLE_EQ(greeks(itm_put).rho, -kt_df);
 }
 
 // Hull 19.7: the Black-Scholes PDE written in Greeks, Θ + rSΔ + ½σ²S²Γ = rV.

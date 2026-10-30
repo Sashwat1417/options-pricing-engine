@@ -22,6 +22,8 @@ struct SweepPoint {
     double put_gamma;
     double call_vega;  // per unit of σ
     double put_vega;
+    double call_rho;  // per unit of r
+    double put_rho;
 };
 
 // Prices (and Greeks of) a call and a put at `steps` evenly spaced values of `axis` in [from, to].
