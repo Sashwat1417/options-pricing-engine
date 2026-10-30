@@ -18,6 +18,8 @@ json SweepResponse::toJson() const {
     json putGamma = json::array();
     json callVega = json::array();
     json putVega = json::array();
+    json callRho = json::array();
+    json putRho = json::array();
     for (const auto& p : points) {
         x.push_back(p.x);
         call.push_back(p.call);
@@ -32,6 +34,8 @@ json SweepResponse::toJson() const {
         putGamma.push_back(p.put_gamma);
         callVega.push_back(p.call_vega);
         putVega.push_back(p.put_vega);
+        callRho.push_back(p.call_rho);
+        putRho.push_back(p.put_rho);
     }
     return {{"vary", vary},
             {"x", x},
@@ -46,7 +50,9 @@ json SweepResponse::toJson() const {
             {"call_gamma", callGamma},
             {"put_gamma", putGamma},
             {"call_vega", callVega},
-            {"put_vega", putVega}};
+            {"put_vega", putVega},
+            {"call_rho", callRho},
+            {"put_rho", putRho}};
 }
 
 }  // namespace ope::server

@@ -6,7 +6,7 @@
 
 namespace ope::server {
 
-// {"delta", "theta", "gamma", "vega"}; theta per year, vega per unit of σ
+// {"delta", "theta", "gamma", "vega", "rho"}; theta per year, vega and rho per unit of σ / r
 struct GreeksResponse {
     Greeks greeks;
 
@@ -14,7 +14,8 @@ struct GreeksResponse {
         return {{"delta", greeks.delta},
                 {"theta", greeks.theta},
                 {"gamma", greeks.gamma},
-                {"vega", greeks.vega}};
+                {"vega", greeks.vega},
+                {"rho", greeks.rho}};
     }
 };
 
