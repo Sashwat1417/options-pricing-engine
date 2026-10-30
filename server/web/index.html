@@ -61,16 +61,20 @@
 
     <!-- Greeks -->
     <div class="results" id="view-greeks" role="tabpanel" hidden>
-      <section class="pair" aria-label="Deltas">
+      <div class="subtabs" role="tablist" aria-label="Greek">
+        <button type="button" role="tab" data-greek="delta" aria-selected="true">Delta Δ</button>
+        <button type="button" role="tab" data-greek="theta" aria-selected="false">Theta Θ</button>
+      </div>
+      <section class="pair" aria-label="Greek values">
         <div class="card stat">
-          <span class="label">Call delta Δ</span>
-          <span id="call-delta" class="value">–</span>
-          <span class="hint">shares to hold per call sold</span>
+          <span id="call-greek-label" class="label">Call delta Δ</span>
+          <span id="call-greek" class="value">–</span>
+          <span id="call-greek-hint" class="hint"></span>
         </div>
         <div class="card stat">
-          <span class="label">Put delta Δ</span>
-          <span id="put-delta" class="value">–</span>
-          <span class="hint">shares to short per put sold</span>
+          <span id="put-greek-label" class="label">Put delta Δ</span>
+          <span id="put-greek" class="value">–</span>
+          <span id="put-greek-hint" class="hint"></span>
         </div>
       </section>
       <section class="card" aria-labelledby="greek-chart-title">
@@ -82,8 +86,8 @@
             <button type="button" data-axis="expiry" aria-selected="false">Expiry</button>
           </div>
         </div>
-        <div class="chart-box"><canvas id="greek-chart" aria-label="Call and put delta chart"></canvas></div>
-        <p class="hint">Δ = ∂price/∂S, the slope of the price curve. Δ<sub>put</sub> = Δ<sub>call</sub> − 1.</p>
+        <div class="chart-box"><canvas id="greek-chart" aria-label="Greek chart"></canvas></div>
+        <p id="greek-note" class="hint"></p>
       </section>
     </div>
 

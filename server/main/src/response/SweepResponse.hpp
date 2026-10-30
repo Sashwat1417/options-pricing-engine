@@ -9,7 +9,8 @@
 
 namespace ope::server {
 
-// {"vary", "x", "call", "put", "call_payoff", "put_payoff", "call_delta", "put_delta"}, arrays
+// {"vary", "x", "call", "put", "call_payoff", "put_payoff", "call_delta", "put_delta",
+//  "call_theta", "put_theta"}, arrays; theta per year
 struct SweepResponse {
     std::string vary;
     std::vector<SweepPoint> points;

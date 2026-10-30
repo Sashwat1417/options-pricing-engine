@@ -49,19 +49,22 @@ TEST(PricingService, SweepResponseHasEqualLengthArrays) {
     EXPECT_EQ(out.at("vary"), "spot");
     EXPECT_EQ(out.at("x"), json({30.0, 40.0, 50.0}));
     for (const char* key :
-         {"call", "put", "call_payoff", "put_payoff", "call_delta", "put_delta"}) {
+         {"call", "put", "call_payoff", "put_payoff", "call_delta", "put_delta", "call_theta",
+          "put_theta"}) {
         EXPECT_EQ(out.at(key).size(), 3u) << key;
     }
     EXPECT_EQ(out.at("put_payoff"), json({10.0, 0.0, 0.0}));
 }
 
-TEST(PricingService, ReturnsHullCh19Delta) {
+TEST(PricingService, ReturnsHullCh19Greeks) {
     const OptionInputs ch19{OptionType::Call, 49.0, 50.0, 0.3846, 0.05, 0.20};
     EXPECT_NEAR(service.greeks(GreeksRequest{ch19}).greeks.delta, 0.5216016339715761, 1e-12);
+    EXPECT_NEAR(service.greeks(GreeksRequest{ch19}).greeks.theta, -4.305389964546104, 1e-11);
 }
 
 TEST(PricingService, ResponsesSerialiseWithApiFieldNames) {
     EXPECT_TRUE(service.price({hullCall()}).toJson().contains("price"));
     EXPECT_TRUE(service.impliedVol({hullCall(), 4.76}).toJson().contains("implied_vol"));
     EXPECT_TRUE(service.greeks(GreeksRequest{hullCall()}).toJson().contains("delta"));
+    EXPECT_TRUE(service.greeks(GreeksRequest{hullCall()}).toJson().contains("theta"));
 }
