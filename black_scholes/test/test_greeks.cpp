@@ -38,6 +38,13 @@ double finite_difference_theta(const OptionInputs& in) {
     return -(ope::price(with_expiry(in, t + h)) - ope::price(with_expiry(in, t - h))) / (2.0 * h);
 }
 
+// Γ as the slope of the delta curve.
+double finite_difference_gamma(const OptionInputs& in) {
+    const double h = 1e-4 * in.spot;
+    return (greeks(with_spot(in, in.spot + h)).delta - greeks(with_spot(in, in.spot - h)).delta) /
+           (2.0 * h);
+}
+
 // Δ as the literal slope of the price curve.
 double finite_difference_delta(const OptionInputs& in) {
     const double h = 1e-4 * in.spot;
@@ -179,4 +186,65 @@ TEST(Theta, IsInterestOnStrikeAtZeroVol) {
     auto itm_put = otm_call;
     itm_put.type = OptionType::Put;
     EXPECT_DOUBLE_EQ(greeks(itm_put).theta, itm_put.rate * kdf);
+}
+
+TEST(Gamma, MatchesHullCh19Example) {
+    EXPECT_NEAR(greeks(hull_ch19()).gamma, 0.066, 5e-4);
+    EXPECT_NEAR(greeks(hull_ch19()).gamma, 0.06554537725247868, 1e-12);
+}
+
+TEST(Gamma, IsSlopeOfDeltaCurve) {
+    for (auto type : {OptionType::Call, OptionType::Put}) {
+        for (double s : {30.0, 45.0, 50.0, 55.0, 80.0}) {
+            for (double t : {0.05, 0.5, 2.0}) {
+                for (double vol : {0.1, 0.3, 0.8}) {
+                    const OptionInputs in{type, s, 50.0, t, 0.05, vol};
+                    // Relative tolerance: the finite difference's error grows with Γ itself.
+                    const double gamma = greeks(in).gamma;
+                    EXPECT_NEAR(gamma, finite_difference_gamma(in), 1e-6 + 1e-5 * gamma)
+                        << (type == OptionType::Call ? "call" : "put") << " S=" << s
+                        << " T=" << t << " vol=" << vol;
+                }
+            }
+        }
+    }
+}
+
+TEST(Gamma, IsSameForCallAndPut) {
+    for (double s : {30.0, 49.0, 50.0, 70.0}) {
+        EXPECT_DOUBLE_EQ(greeks(with_spot(hull_ch19(OptionType::Call), s)).gamma,
+                         greeks(with_spot(hull_ch19(OptionType::Put), s)).gamma)
+            << "S=" << s;
+    }
+}
+
+TEST(Gamma, IsPositiveAndPeaksNearTheMoney) {
+    double peak_spot = 0.0;
+    double peak = -1.0;
+    for (double s = 20.0; s <= 100.0; s += 0.5) {
+        const double g = greeks(with_spot(hull_ch19(), s)).gamma;
+        EXPECT_GT(g, 0.0) << "S=" << s;
+        if (g > peak) {
+            peak = g;
+            peak_spot = s;
+        }
+    }
+    EXPECT_NEAR(peak_spot, 50.0, 3.0);
+}
+
+TEST(Gamma, DeepInAndOutOfTheMoneyIsNearZero) {
+    EXPECT_NEAR(greeks(with_spot(hull_ch19(), 5.0)).gamma, 0.0, 1e-12);
+    EXPECT_NEAR(greeks(with_spot(hull_ch19(), 200.0)).gamma, 0.0, 1e-12);
+}
+
+TEST(Gamma, GrowsNearTheMoneyAsExpiryApproaches) {
+    const auto at_the_money = with_spot(hull_ch19(), 50.0);
+    EXPECT_GT(greeks(with_expiry(at_the_money, 0.02)).gamma,
+              greeks(with_expiry(at_the_money, 1.0)).gamma);
+}
+
+TEST(Gamma, IsZeroAtZeroVol) {
+    auto in = with_spot(hull_ch19(), 55.0);
+    in.volatility = 0.0;
+    EXPECT_DOUBLE_EQ(greeks(in).gamma, 0.0);
 }

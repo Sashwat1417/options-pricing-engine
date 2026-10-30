@@ -87,7 +87,7 @@ TEST_F(PricingControllerTest, SweepReturnsArrays) {
     EXPECT_EQ(json::parse(res->body).at("x"), json({30.0, 40.0, 50.0}));
 }
 
-TEST_F(PricingControllerTest, GreeksReturnsDeltaAndTheta) {
+TEST_F(PricingControllerTest, GreeksReturnsDeltaThetaGamma) {
     const auto res = post("/api/v1/greeks", R"({"type":"put","spot":49,"strike":50,
         "expiry":0.3846,"rate":0.05,"vol":0.2})");
     ASSERT_TRUE(res);
@@ -95,6 +95,7 @@ TEST_F(PricingControllerTest, GreeksReturnsDeltaAndTheta) {
     const json body = json::parse(res->body);
     EXPECT_NEAR(body.at("delta").get<double>(), -0.4783983660284239, 1e-12);
     EXPECT_NEAR(body.at("theta").get<double>(), -1.853005672196868, 1e-11);
+    EXPECT_NEAR(body.at("gamma").get<double>(), 0.06554537725247868, 1e-12);
 }
 
 TEST_F(PricingControllerTest, MalformedJsonIs400) {

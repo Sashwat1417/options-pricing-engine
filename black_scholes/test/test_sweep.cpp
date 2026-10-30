@@ -81,8 +81,10 @@ TEST(Sweep, GreeksMatchAtEachPoint) {
         in.type = OptionType::Call;
         EXPECT_DOUBLE_EQ(p.call_delta, ope::greeks(in).delta) << "S=" << p.x;
         EXPECT_DOUBLE_EQ(p.call_theta, ope::greeks(in).theta) << "S=" << p.x;
+        EXPECT_DOUBLE_EQ(p.call_gamma, ope::greeks(in).gamma) << "S=" << p.x;
         in.type = OptionType::Put;
         EXPECT_DOUBLE_EQ(p.put_delta, ope::greeks(in).delta) << "S=" << p.x;
         EXPECT_DOUBLE_EQ(p.put_theta, ope::greeks(in).theta) << "S=" << p.x;
+        EXPECT_DOUBLE_EQ(p.put_gamma, ope::greeks(in).gamma) << "S=" << p.x;
     }
 }

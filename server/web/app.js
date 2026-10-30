@@ -40,6 +40,22 @@ const GREEKS = {
       + "Negative means the option loses value each day; time passing is certain, so it is a "
       + "known cost, not a risk to hedge.",
   },
+  gamma: {
+    name: "Gamma Γ",
+    symbol: "Γ",
+    key: "gamma",
+    scale: 1,
+    digits: 5,
+    yLabel: "Gamma Γ (∂Δ/∂S)",
+    yRange: { min: 0 },
+    hints: {
+      call: "change in Δ per ₹1 move in S",
+      put: "change in Δ per ₹1 move in S (same as the call)",
+    },
+    note: "Γ = ∂Δ/∂S = ∂²price/∂S², how fast delta changes, i.e. how much the price curve bends. "
+      + "Largest at the money and near expiry, where a delta hedge goes stale fastest. Shares have "
+      + "Γ = 0, so only options can hedge it.",
+  },
 };
 
 // The chart for each view, built from the active Greek on the Greeks tab.
