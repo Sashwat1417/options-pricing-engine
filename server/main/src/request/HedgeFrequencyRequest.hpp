@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ope/hedging.hpp"
 #include "ope/option.hpp"
 
 #include <nlohmann/json.hpp>
@@ -10,7 +11,7 @@
 namespace ope::server {
 
 // POST /api/v1/hedge/frequency
-// {spot, strike, expiry, rate, vol, quantity, drift, paths, seed, rebalances?: [..]}
+// {spot, strike, expiry, rate, vol, quantity, drift, real_vol?, paths, seed, rebalances?: [..]}
 // Hull Table 19.1: hedge `paths` simulated paths at each rebalance count.
 struct HedgeFrequencyRequest {
     static constexpr int kMaxPaths = 5000;
@@ -18,7 +19,7 @@ struct HedgeFrequencyRequest {
 
     OptionInputs option;
     double quantity;
-    double drift;
+    RealWorld world;
     int paths;
     std::uint64_t seed;
     std::vector<int> rebalances;  // default {4, 5, 10, 20, 40, 80}

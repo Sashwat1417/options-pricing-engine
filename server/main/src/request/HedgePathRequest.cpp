@@ -47,7 +47,7 @@ HedgePathRequest HedgePathRequest::fromJson(const json& body) {
     }
     request.prices = parsePrices(body);
     if (request.prices.empty()) {
-        request.drift = hedge_fields::drift(body);
+        request.world = hedge_fields::realWorld(body, request.option.volatility);
         request.rebalances =
             static_cast<int>(json_reader::integer(body, "rebalances", 1, kMaxRebalances));
         request.seed = hedge_fields::seed(body);

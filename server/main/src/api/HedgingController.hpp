@@ -6,7 +6,7 @@
 
 namespace ope::server {
 
-// POST /api/v1/hedge/{path,frequency}.
+// POST /api/v1/hedge/{path,frequency,vol-study}.
 // Bad input -> 400 {"error": ...}, unexpected failure -> 500.
 class HedgingController {
 public:
