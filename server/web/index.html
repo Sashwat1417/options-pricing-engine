@@ -20,6 +20,7 @@
       <button type="button" role="tab" data-view="greeks" aria-selected="false">Greeks</button>
       <button type="button" role="tab" data-view="iv" aria-selected="false">Implied vol</button>
       <button type="button" role="tab" data-view="hedging" aria-selected="false">Hedging</button>
+      <button type="button" role="tab" data-view="mc" aria-selected="false">Monte Carlo</button>
     </nav>
   </header>
 
@@ -234,14 +235,78 @@
         <div id="vol-chart-box" class="chart-box short" hidden><canvas id="vol-chart" aria-label="Mean bank P&amp;L by realised volatility"></canvas></div>
       </section>
     </div>
+
+    <!-- Monte Carlo -->
+    <div class="results" id="view-mc" role="tabpanel" hidden>
+      <div class="subtabs" id="mc-products" role="tablist" aria-label="Derivative">
+        <button type="button" role="tab" data-product="vanilla" aria-selected="true">Vanilla</button>
+      </div>
+      <section class="card" aria-labelledby="mc-title">
+        <h2 id="mc-title">Price a vanilla option by simulation</h2>
+        <p class="hint">Simulates the stock's price at expiry many times in the risk-neutral world
+          (it grows at the risk-free rate r, not its real expected return), averages the
+          discounted payoff and reports the standard error (Hull 21.6). A vanilla option also has
+          a Black-Scholes price, so this checks the engine before it prices options with no
+          formula.</p>
+        <div class="hedge-params">
+          <label>Type
+            <select id="mc-type">
+              <option value="call">Call</option>
+              <option value="put">Put</option>
+            </select>
+          </label>
+          <label>Paths <input id="mc-paths" type="number" step="1" min="2" max="2000000" value="100000"></label>
+          <label>Seed <input id="mc-seed" type="number" step="1" min="0" value="42"></label>
+        </div>
+        <div class="hedge-actions">
+          <button type="button" id="mc-new" class="button primary">New seed</button>
+        </div>
+        <p id="mc-error" class="error" role="alert" hidden></p>
+      </section>
+
+      <section class="stat-grid three" aria-label="Monte Carlo result">
+        <div class="card stat">
+          <span class="label">Monte Carlo price</span>
+          <span id="mc-price" class="value small">–</span>
+          <span id="mc-se" class="hint"></span>
+        </div>
+        <div class="card stat">
+          <span class="label">Black-Scholes price</span>
+          <span id="mc-bs" class="value small">–</span>
+          <span class="hint">exact formula (Layer 1)</span>
+        </div>
+        <div class="card stat">
+          <span class="label">MC − Black-Scholes</span>
+          <span id="mc-diff" class="value small">–</span>
+          <span id="mc-verdict" class="hint"></span>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="mc-conv-title">
+        <h2 id="mc-conv-title">Convergence: more paths, narrower interval</h2>
+        <p class="hint">The same option priced with more and more paths. The shaded band is the
+          95% interval; it narrows as 1/√N, so each extra decimal place of accuracy costs 100×
+          the paths. That cost is why variance reduction (Hull 21.7) comes next.</p>
+        <div class="chart-box"><canvas id="mc-chart" aria-label="Monte Carlo estimate and 95% interval by number of paths"></canvas></div>
+        <div class="table-wrap">
+          <table class="data-table" id="mc-table">
+            <thead>
+              <tr><th>Paths</th><th>MC price</th><th>Std error</th><th>95% interval</th><th>MC − Black-Scholes</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
   </main>
 
   <footer class="wrap foot">
-    Every number on this page comes from the C++ API: <code>/api/v1/price</code>, <code>/greeks</code>, <code>/iv</code>, <code>/sweep</code>, <code>/hedge</code>.
+    Every number on this page comes from the C++ API: <code>/api/v1/price</code>, <code>/greeks</code>, <code>/iv</code>, <code>/sweep</code>, <code>/hedge</code>, <code>/mc</code>.
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
   <script src="hedging.js"></script>
+  <script src="montecarlo.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
