@@ -84,23 +84,25 @@ HedgeResult hedge_short_call(const OptionInputs& option, double quantity,
     return result;
 }
 
-HedgeResult hedge_simulated_path(const OptionInputs& option, double quantity, double drift,
+HedgeResult hedge_simulated_path(const OptionInputs& option, double quantity, RealWorld world,
                                  int rebalances, uint64_t seed) {
     validate(option);
     mt19937_64 rng(seed);
-    const GbmParams params{option.spot, drift, option.volatility, option.time_to_expiry,
+    // The stock moves at the realised vol; hedge_short_call computes Δ at the implied vol.
+    const GbmParams params{option.spot, world.drift, world.volatility, option.time_to_expiry,
                            rebalances};
     return hedge_short_call(option, quantity, simulate_gbm_path(params, rng));
 }
 
-HedgeCostStats hedge_cost_stats(const OptionInputs& option, double quantity, double drift,
+HedgeCostStats hedge_cost_stats(const OptionInputs& option, double quantity, RealWorld world,
                                 int rebalances, int paths, uint64_t seed) {
     validate(option);
     if (paths < 2) {
         throw invalid_argument("hedge_cost_stats needs paths >= 2");
     }
     mt19937_64 rng(seed);
-    const GbmParams params{option.spot, drift, option.volatility, option.time_to_expiry,
+    // The stock moves at the realised vol; hedge_short_call computes Δ at the implied vol.
+    const GbmParams params{option.spot, world.drift, world.volatility, option.time_to_expiry,
                            rebalances};
 
     // Welford's running mean and variance: one pass, no stored costs.
