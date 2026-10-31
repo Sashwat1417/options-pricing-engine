@@ -312,6 +312,7 @@ function showView(name) {
   document.querySelectorAll(".tabs button").forEach((b) =>
     b.setAttribute("aria-selected", String(b.dataset.view === view)));
   for (const v of VIEWS) $(`view-${v}`).hidden = v !== view;
+  if (view === "hedging") prepareHedgingView();
   refresh();
 }
 

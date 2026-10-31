@@ -312,14 +312,31 @@ function drawVolChart(data, pct) {
   });
 }
 
-function loadHull(key) {
-  hedgeMode = key;
+function applyHullSetup() {
   for (const [id, value] of Object.entries(HULL_INPUTS)) $(id).value = value;
   $("h-rebalances").value = 20;
   $("h-premium").value = 3;
   $("h-real-vol").value = 20;
   $("h-cost-rate").value = 0;
+  $("inputs-hint").textContent = "Hull's Ch 19 example (19.1), loaded for hedging. Shared by every tab.";
+}
+
+function loadHull(key) {
+  hedgeMode = key;
+  applyHullSetup();
   refreshHedge(marketInputs());
+}
+
+let hedgingOpened = false;
+
+// Called by app.js when the Hedging tab is shown: the first time, swap untouched Ch 15
+// defaults for Hull's Ch 19 option, which the hedging premium and story are built around.
+function prepareHedgingView() {
+  if (hedgingOpened) return;
+  hedgingOpened = true;
+  const untouched = ["spot", "strike", "days", "rate", "vol"].every(
+    (id) => $(id).value === $(id).defaultValue);
+  if (untouched) applyHullSetup();
 }
 
 // Called by app.js once its helpers exist.
