@@ -154,6 +154,10 @@ monte_carlo/                  path simulation shared by Layers 2 and 3 (target: 
 ├── main/include/ope/gbm.hpp  simulate_gbm_path: exact lognormal steps, seeded RNG
 ├── main/src/
 └── test/                     statistical tests + Monte Carlo price vs Black-Scholes
+hedging/                      Layer 3: delta-hedging simulator (target: ope::hedging)
+├── main/include/ope/hedging.hpp  hedge_short_call: Hull Table 19.2-style rebalance rows
+├── main/src/
+└── test/                     accounting rules, no look-ahead, mean cost = BS value
 cli/                          `ope` command-line tool
 ├── main/src/
 └── test/                     smoke tests that run the binary
