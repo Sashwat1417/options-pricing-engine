@@ -26,12 +26,12 @@ Multi-layer C++ options pricing engine: closed-form Black-Scholes, Monte Carlo s
 | Layer | Module | What it does | Checked against |
 |---|---|---|---|
 | **1 · Black-Scholes** | `black_scholes/` | Price European calls and puts; implied vol by bisection; Greeks Δ Θ Γ ν ρ; sweeps | Hull Ch 15 & 19 examples; put-call parity; finite differences; the BS PDE Θ + rSΔ + ½σ²S²Γ = rV |
-| **2 · Monte Carlo** | `monte_carlo/` | GBM path simulator (exact lognormal steps, seeded). Exotic pricing: *next* | Monte Carlo call price = Black-Scholes |
+| **2 · Monte Carlo** | `monte_carlo/` | GBM path simulator (exact lognormal steps, seeded); Monte Carlo pricer for European calls and puts with standard error. Variance reduction and exotics: *next* | Black-Scholes inside the Monte Carlo confidence interval; error falls as 1/√N; put-call parity |
 | **3 · Delta hedging** | `hedging/` | Hedge a sold call along a path; cost and P&L; many-path statistics; realised ≠ implied vol; transaction costs | Hull Tables 19.2 / 19.3 row by row; Table 19.1 pattern |
 
 Around them:
 - **`cli/`**: the `ope` command-line tool;
-- **`server/`**: `ope-server`, a REST API plus a web UI with **Pricing**, **Greeks**, **Implied vol** and **Hedging** tabs;
+- **`server/`**: `ope-server`, a REST API plus a web UI with **Pricing**, **Greeks**, **Implied vol**, **Hedging** and **Monte Carlo** tabs;
 - **`viz/`**: Python charts.
 
 Packaging and delivery: Docker, a Kubernetes manifest, GitHub Actions CI on Linux and macOS, and Render.
@@ -149,6 +149,8 @@ curl localhost:8080/api/v1/price -H 'Content-Type: application/json' \
 | `POST /api/v1/hedge/path` | `spot, strike, expiry, rate, vol, quantity, premium` + either `drift, real_vol?, rebalances, seed` (simulate) or `prices` (a given path), `cost_rate?` | `steps` rows (Hull Table 19.2 layout, incl. `trading_cost`), `total_trading_cost, hedge_cost, pv_hedge_cost, bs_value, premium_received, pnl, exercised` |
 | `POST /api/v1/hedge/frequency` | `spot, strike, expiry, rate, vol, quantity, drift, real_vol?, paths, seed, rebalances?` | `rows` of `rebalances, mean_pv_cost, sd_pv_cost, sd_over_bs` (Hull Table 19.1) |
 | `POST /api/v1/hedge/vol-study` | `spot, strike, expiry, rate, vol, quantity, premium, drift, rebalances, paths, seed, real_vols?` | `rows` of `real_vol, mean_pv_cost, sd_pv_cost, mean_pnl`, plus `premium_implied_vol` (the break-even realised vol) |
+| `POST /api/v1/mc/price` | `type, spot, strike, expiry, rate, vol, paths, seed` (`paths` ≤ 2,000,000) | `price, std_error, ci_low, ci_high` (95%), `bs_price, paths, seed` |
+| `POST /api/v1/mc/convergence` | `type, spot, strike, expiry, rate, vol, seed, paths?` (list; default 1,000 … 1,000,000, total ≤ 4,000,000) | `rows` of `paths, price, std_error, ci_low, ci_high`, plus `bs_price` |
 
 Bad input returns `400 {"error": "..."}`. `vol` is the implied vol the option is priced and hedged at; `real_vol` (default: `vol`) is how the simulated stock actually moves. `cost_rate` (default 0, e.g. `0.001` = 0.1%) charges every hedge trade that fraction of its value. Bodies over 64 KB get `413`. Each request is logged as one JSON line with its duration.
 
@@ -172,8 +174,9 @@ black_scholes/                Layer 1 (target: ope::black_scholes)
 └── test/                     GoogleTest unit tests
 monte_carlo/                  path simulation shared by Layers 2 and 3 (target: ope::monte_carlo)
 ├── main/include/ope/gbm.hpp  simulate_gbm_path: exact lognormal steps, seeded RNG
+├── main/include/ope/mc_pricer.hpp  mc_price: European price + standard error (Layer 2)
 ├── main/src/
-└── test/                     statistical tests + Monte Carlo price vs Black-Scholes
+└── test/                     statistical tests: Monte Carlo within 4 standard errors of Black-Scholes
 hedging/                      Layer 3: delta-hedging simulator (target: ope::hedging)
 ├── main/include/ope/hedging.hpp  hedge_short_call: Hull Table 19.2-style rebalance rows
 ├── main/src/
@@ -182,12 +185,12 @@ cli/                          `ope` command-line tool
 ├── main/src/
 └── test/                     smoke tests that run the binary
 server/                       `ope-server` REST API
-├── main/src/api/             PricingController, HedgingController, HealthController, WebController
+├── main/src/api/             PricingController, HedgingController, MonteCarloController, HealthController, WebController
 ├── main/src/config/          ServerConfig: env vars, payload/timeout limits
 ├── main/src/service/         PricingService: calls ope::black_scholes
 ├── main/src/request/         PriceRequest, IvRequest, SweepRequest (+ JsonReader)
 ├── main/src/response/        PriceResponse, IvResponse, SweepResponse, ErrorResponse
-├── web/                      index.html, app.css, app.js (display only)
+├── web/                      index.html, app.css, app.js, hedging.js, montecarlo.js (display only)
 └── test/                     api/ (real HTTP), request/ and service/ tests
 cmake/                        shared build helpers (warnings, sanitizers, GoogleTest, CLI11, httplib, json)
 viz/                          Python plotting (draws only, no pricing logic)

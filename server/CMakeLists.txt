@@ -1,11 +1,12 @@
-# REST API for Layer 1. Builds the `ope-server` executable.
-# Layered like Order Book's order-service: api -> service -> ope::black_scholes,
+# REST API for the engine. Builds the `ope-server` executable.
+# Layered like Order Book's order-service: api -> service -> the ope:: libraries,
 # with request/ and response/ DTOs at the edges.
 
 add_library(ope_server_core
     main/src/api/HealthController.cpp
     main/src/api/HedgingController.cpp
     main/src/api/JsonRoute.cpp
+    main/src/api/MonteCarloController.cpp
     main/src/api/PricingController.cpp
     main/src/api/WebController.cpp
     main/src/config/ServerConfig.cpp
@@ -16,13 +17,17 @@ add_library(ope_server_core
     main/src/request/HedgeVolStudyRequest.cpp
     main/src/request/IvRequest.cpp
     main/src/request/JsonReader.cpp
+    main/src/request/McConvergenceRequest.cpp
+    main/src/request/McPriceRequest.cpp
     main/src/request/PriceRequest.cpp
     main/src/request/SweepRequest.cpp
     main/src/response/HedgeFrequencyResponse.cpp
     main/src/response/HedgePathResponse.cpp
     main/src/response/HedgeVolStudyResponse.cpp
+    main/src/response/McResponses.cpp
     main/src/response/SweepResponse.cpp
     main/src/service/HedgingService.cpp
+    main/src/service/MonteCarloService.cpp
     main/src/service/PricingService.cpp
 )
 
@@ -32,6 +37,7 @@ target_link_libraries(ope_server_core
     PUBLIC
         ope::black_scholes
         ope::hedging
+        ope::monte_carlo
         httplib::httplib
         nlohmann_json::nlohmann_json
 )
@@ -56,12 +62,15 @@ if(OPE_BUILD_TESTS)
     add_executable(server_tests
         test/api/HealthControllerTest.cpp
         test/api/HedgingControllerTest.cpp
+        test/api/MonteCarloControllerTest.cpp
         test/api/PricingControllerTest.cpp
         test/api/WebControllerTest.cpp
         test/config/ServerConfigTest.cpp
         test/request/HedgeRequestParsingTest.cpp
+        test/request/McRequestParsingTest.cpp
         test/request/RequestParsingTest.cpp
         test/service/HedgingServiceTest.cpp
+        test/service/MonteCarloServiceTest.cpp
         test/service/PricingServiceTest.cpp
     )
 

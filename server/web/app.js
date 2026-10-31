@@ -3,7 +3,7 @@
 
 const $ = (id) => document.getElementById(id);
 const fields = ["spot", "strike", "days", "rate", "vol"].map($);
-const VIEWS = ["pricing", "greeks", "iv", "hedging"];
+const VIEWS = ["pricing", "greeks", "iv", "hedging", "mc"];
 let view = "pricing";
 let axis = "spot";
 let greek = "delta";
@@ -273,6 +273,10 @@ async function refresh() {
     showError($("error"), "");
     return refreshHedge(m);
   }
+  if (view === "mc") {
+    showError($("error"), "");
+    return refreshMc(m);
+  }
   try {
     const [callPrice, putPrice, callGreeks, putGreeks] = await Promise.all([
       api("/api/v1/price", { ...m, type: "call" }),
@@ -322,6 +326,7 @@ fields.forEach((f) => f.addEventListener("input", () => {
   scheduleRefresh();
 }));
 initHedging();
+initMonteCarlo();
 $("iv-type").addEventListener("change", () => refreshIv(marketInputs()));
 $("iv-price").addEventListener("input", () => refreshIv(marketInputs()));
 
@@ -335,10 +340,10 @@ document.querySelectorAll(".segmented button").forEach((btn) => {
   });
 });
 
-document.querySelectorAll(".subtabs button").forEach((btn) => {
+document.querySelectorAll("#view-greeks .subtabs button").forEach((btn) => {
   btn.addEventListener("click", () => {
     greek = btn.dataset.greek;
-    document.querySelectorAll(".subtabs button").forEach((b) =>
+    document.querySelectorAll("#view-greeks .subtabs button").forEach((b) =>
       b.setAttribute("aria-selected", String(b === btn)));
     try { history.replaceState(null, "", `#greeks-${greek}`); } catch (e) {}
     showGreekLabels();
@@ -354,11 +359,11 @@ document.querySelectorAll(".tabs button").forEach((btn) => {
 });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", refresh);
 
-// Deep link to a tab or Greek: /#pricing, /#greeks, /#greeks-theta, /#iv, /#hedging.
+// Deep link to a tab or Greek: /#pricing, /#greeks, /#greeks-theta, /#iv, /#hedging, /#mc.
 const [linkedView, linkedGreek] = location.hash.slice(1).split("-");
 if (linkedGreek in GREEKS) {
   greek = linkedGreek;
-  document.querySelectorAll(".subtabs button").forEach((b) =>
+  document.querySelectorAll("#view-greeks .subtabs button").forEach((b) =>
     b.setAttribute("aria-selected", String(b.dataset.greek === greek)));
 }
 showGreekLabels();
