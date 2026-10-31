@@ -2,6 +2,7 @@
 
 #include "ope/option.hpp"
 
+#include <cstdint>
 #include <vector>
 
 namespace ope {
@@ -29,5 +30,21 @@ struct HedgeResult {
 // Throws std::invalid_argument on invalid inputs.
 [[nodiscard]] HedgeResult hedge_short_call(const OptionInputs& option, double quantity,
                                            const std::vector<double>& path);
+
+// Simulates one real-world path (drift μ, σ = option.volatility, `rebalances` steps) from
+// `seed` and delta-hedges along it. The same seed always gives the same path.
+[[nodiscard]] HedgeResult hedge_simulated_path(const OptionInputs& option, double quantity,
+                                               double drift, int rebalances, std::uint64_t seed);
+
+struct HedgeCostStats {
+    double mean_pv_cost;  // ≈ bs_value
+    double sd_pv_cost;
+    double bs_value;      // Black-Scholes price · quantity
+};
+
+// Hedges `paths` simulated paths and summarises the PV hedge cost (Hull Table 19.1).
+[[nodiscard]] HedgeCostStats hedge_cost_stats(const OptionInputs& option, double quantity,
+                                              double drift, int rebalances, int paths,
+                                              std::uint64_t seed);
 
 }  // namespace ope

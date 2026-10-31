@@ -10,7 +10,7 @@ target_include_directories(ope_hedging
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/main/include>
 )
 
-target_link_libraries(ope_hedging PUBLIC ope::black_scholes)
+target_link_libraries(ope_hedging PUBLIC ope::black_scholes PRIVATE ope::monte_carlo)
 target_compile_features(ope_hedging PUBLIC cxx_std_17)
 
 ope_set_warnings(ope_hedging)
