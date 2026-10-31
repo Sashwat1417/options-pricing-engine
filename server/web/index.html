@@ -131,6 +131,8 @@
           <label>Rebalances <input id="h-rebalances" type="number" step="1" min="1" max="1000" value="20"></label>
           <label>Premium per option <input id="h-premium" type="number" step="any" value="3">
             <span id="h-fair" class="hint"></span></label>
+          <label>Trading cost (% per trade) <input id="h-cost-rate" type="number" step="any" min="0" max="10" value="0">
+            <span class="hint">spread + commission, e.g. 0.1</span></label>
         </div>
         <div class="hedge-actions">
           <button type="button" id="h-new" class="button primary">New path</button>
@@ -146,7 +148,7 @@
         <div class="card stat">
           <span class="label">Hedge cost (today's value)</span>
           <span id="h-cost" class="value small">–</span>
-          <span class="hint">what hedging cost the bank on this path</span>
+          <span id="h-cost-note" class="hint">what hedging cost the bank on this path</span>
         </div>
         <div class="card stat">
           <span class="label">Black-Scholes value</span>
@@ -179,7 +181,8 @@
             <thead>
               <tr>
                 <th>Week</th><th>Stock price</th><th>Delta</th><th>Shares purchased</th>
-                <th>Cost of shares ($000)</th><th>Cumulative cost incl. interest ($000)</th>
+                <th>Cost of shares ($000)</th><th>Trading cost ($000)</th>
+                <th>Cumulative cost incl. interest ($000)</th>
                 <th>Interest cost ($000)</th>
               </tr>
             </thead>

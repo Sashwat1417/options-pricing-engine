@@ -129,7 +129,6 @@ function showError(el, message) {
 }
 
 function sweepRange(m) {
-  // Spot from just above 0 to 3K: wide enough to see both tails (e.g. 0-150 for K = 50).
   if (axis === "spot") return { from: m.strike * 0.01, to: m.strike * 3 };
   if (axis === "vol") return { from: 0.01, to: 1.0 };
   return { from: 1 / 365, to: 2.0 };
@@ -210,7 +209,6 @@ function drawChart(name, sweep, current, now) {
     scales: {
       x: {
         type: "linear",
-        // Expiry reads left to right as time passing: far from expiry -> expiry (0 days).
         reverse: axis === "expiry",
         min: toAxisUnits(sweep.x[0]),
         max: toAxisUnits(sweep.x[sweep.x.length - 1]),
@@ -221,7 +219,6 @@ function drawChart(name, sweep, current, now) {
       y: {
         title: { display: true, text: spec.yLabel, color: ink },
         ticks: { color: ink },
-        // Highlight zero on the Greeks chart: calls sit above it, puts below.
         grid: { color: (ctx) => (ctx.tick.value === 0 && !spec.payoffs ? ink : grid) },
         beginAtZero: true,
         ...spec.yRange,
@@ -257,7 +254,6 @@ const BLANK = { "call-price": "–", "put-price": "–", "call-greek": "–", "p
 function showGreekLabels() {
   const g = GREEKS[greek];
   const lower = g.name.split(" ")[0].toLowerCase();
-  // Keep the symbol out of the label's uppercase styling: an uppercase ν renders as "N".
   const symbol = `<span class="symbol">${g.symbol}</span>`;
   $("call-greek-label").innerHTML = `Call ${lower} ${symbol}`;
   $("put-greek-label").innerHTML = `Put ${lower} ${symbol}`;
@@ -293,7 +289,6 @@ async function refresh() {
     });
     showError($("error"), "");
 
-    // Chart.js can't size a hidden canvas, so only the visible view's chart is drawn.
     const sweep = await api("/api/v1/sweep", { ...m, vary: axis, ...sweepRange(m), steps: 301 });
     const current = { spot: m.spot, vol: m.vol, expiry: m.expiry }[axis];
     const now = view === "pricing"

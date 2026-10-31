@@ -28,6 +28,7 @@ function hedgeParams() {
     premium: parseFloat($("h-premium").value),
     drift: parseFloat($("h-drift").value) / 100,
     realVol: parseFloat($("h-real-vol").value) / 100,
+    costRate: parseFloat($("h-cost-rate").value) / 100,
     rebalances: parseInt($("h-rebalances").value, 10),
     seed: parseInt($("h-seed").value, 10),
   };
@@ -47,12 +48,14 @@ const shares = (x) => {
 
 function weeks(timeInYears) {
   const w = timeInYears * 52;
-  // Hull's T = 0.3846 years is 19.9992 weeks, so allow a little slack for whole weeks.
   return Math.abs(w - Math.round(w)) < 0.01 ? String(Math.round(w)) : w.toFixed(2);
 }
 
 function showHedgeResult(data, m) {
   $("h-cost").textContent = usd(data.pv_hedge_cost);
+  $("h-cost-note").textContent = data.total_trading_cost > 0
+    ? `incl. ${usd(data.total_trading_cost)} of trading costs`
+    : "what hedging cost the bank on this path";
   $("h-bs").textContent = usd(data.bs_value);
   $("h-fair").textContent = `fair value: ${(data.bs_value / hedgeParams().quantity).toFixed(2)}`;
   $("h-premium-out").textContent = usd(data.premium_received);
@@ -68,6 +71,7 @@ function showHedgeResult(data, m) {
     <tr>
       <td>${weeks(s.time)}</td><td>${s.spot.toFixed(2)}</td><td>${s.delta.toFixed(3)}</td>
       <td>${shares(s.shares_bought)}</td><td>${thousands(s.purchase_cost)}</td>
+      <td>${thousands(s.trading_cost)}</td>
       <td>${thousands(s.cumulative_cost)}</td>
       <td>${s === last ? "" : thousands(s.interest)}</td>
     </tr>`).join("");
@@ -160,7 +164,7 @@ function drawHedgeChart(data, m) {
 
 async function refreshHedge(m) {
   const p = hedgeParams();
-  const body = { ...m, quantity: p.quantity, premium: p.premium };
+  const body = { ...m, quantity: p.quantity, premium: p.premium, cost_rate: p.costRate };
   if (hedgeMode === "simulated") {
     Object.assign(body, { drift: p.drift, real_vol: p.realVol, rebalances: p.rebalances,
                           seed: p.seed });
@@ -188,7 +192,7 @@ async function runFrequencyStudy() {
   try {
     const data = await api("/api/v1/hedge/frequency", {
       ...m, quantity: p.quantity, drift: p.drift, real_vol: p.realVol, seed: p.seed,
-      paths: parseInt($("f-paths").value, 10),
+      cost_rate: p.costRate, paths: parseInt($("f-paths").value, 10),
     });
     const totalWeeks = m.expiry * 52;
     const label = (n) => `${(totalWeeks / n).toFixed(2).replace(/\.?0+$/, "")} wk`;
@@ -248,7 +252,7 @@ async function runVolStudy() {
   try {
     const data = await api("/api/v1/hedge/vol-study", {
       ...m, quantity: p.quantity, premium: p.premium, drift: p.drift, rebalances: p.rebalances,
-      seed: p.seed, paths: parseInt($("v-paths").value, 10),
+      seed: p.seed, cost_rate: p.costRate, paths: parseInt($("v-paths").value, 10),
     });
     const pct = (v) => `${(v * 100).toFixed(1)}%`;
     $("v-summary").textContent = data.premium_implied_vol === null
@@ -312,8 +316,9 @@ function loadHull(key) {
   hedgeMode = key;
   for (const [id, value] of Object.entries(HULL_INPUTS)) $(id).value = value;
   $("h-rebalances").value = 20;
-  $("h-premium").value = 3;  // Hull 19.1: sold for $300,000 on 100,000 shares
-  $("h-real-vol").value = 20;  // Hull's stock moves at the vol it was sold at
+  $("h-premium").value = 3;
+  $("h-real-vol").value = 20;
+  $("h-cost-rate").value = 0;
   refreshHedge(marketInputs());
 }
 
@@ -327,7 +332,7 @@ function initHedging() {
   $("h-hull192").addEventListener("click", () => loadHull("hull192"));
   $("h-hull193").addEventListener("click", () => loadHull("hull193"));
   for (const id of ["h-drift", "h-real-vol", "h-quantity", "h-rebalances", "h-premium",
-                    "h-seed"]) {
+                    "h-cost-rate", "h-seed"]) {
     $(id).addEventListener("input", () => {
       hedgeMode = "simulated";
       scheduleRefresh();

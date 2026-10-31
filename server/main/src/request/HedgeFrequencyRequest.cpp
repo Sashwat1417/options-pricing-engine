@@ -42,6 +42,7 @@ HedgeFrequencyRequest HedgeFrequencyRequest::fromJson(const json& body) {
     HedgeFrequencyRequest request{};
     request.option = hedge_fields::callOption(body);
     request.quantity = hedge_fields::quantity(body);
+    request.costRate = hedge_fields::costRate(body);
     request.world = hedge_fields::realWorld(body, request.option.volatility);
     request.paths = static_cast<int>(json_reader::integer(body, "paths", 2, kMaxPaths));
     request.seed = hedge_fields::seed(body);

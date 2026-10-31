@@ -15,12 +15,13 @@ namespace ope::server {
 //  prices?}
 // `prices`, if given, is the path to hedge (e.g. Hull's Table 19.2); otherwise one path is
 // simulated from `seed` at drift `drift` and realised vol `real_vol` (default: vol), with
-// `rebalances` steps. Δ always uses vol.
+// `rebalances` steps. Δ always uses vol. Optional cost_rate: cost per trade (default 0).
 struct HedgePathRequest {
     static constexpr int kMaxRebalances = 1000;
 
     OptionInputs option;  // a call
     double quantity;
+    double costRate;  // per trade, fraction of its value
     double premium;       // per share, received when the option was sold
     RealWorld world;
     int rebalances;

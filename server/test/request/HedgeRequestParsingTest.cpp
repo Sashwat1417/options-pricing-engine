@@ -67,6 +67,15 @@ TEST(HedgePathRequest, RealVolOverridesImpliedForThePath) {
     EXPECT_NE(errorFor(body).find("real_vol"), string::npos);
 }
 
+TEST(HedgePathRequest, CostRateDefaultsToZeroAndIsBounded) {
+    EXPECT_DOUBLE_EQ(HedgePathRequest::fromJson(hullPath()).costRate, 0.0);
+    json body = hullPath();
+    body["cost_rate"] = 0.001;
+    EXPECT_DOUBLE_EQ(HedgePathRequest::fromJson(body).costRate, 0.001);
+    body["cost_rate"] = 0.5;
+    EXPECT_NE(errorFor(body).find("cost_rate"), string::npos);
+}
+
 TEST(HedgePathRequest, GivenPricesReplaceSimulation) {
     json body = hullPath();
     body.erase("drift");
