@@ -155,6 +155,49 @@ TEST(Hedging, CostSpreadShrinksWithMoreFrequentRebalancing) {
     EXPECT_LT(every_quarter_week, weekly);
 }
 
+// Hull Tables 19.2 and 19.3: his exact weekly price paths, deltas and cumulative costs ($000).
+struct HullTable {
+    vector<double> prices;
+    vector<double> deltas;
+    vector<double> cumulative_cost_thousands;
+    double hedge_cost;
+};
+
+const HullTable kTable192{
+    {49.00, 48.12, 47.37, 50.25, 51.75, 53.12, 53.00, 51.87, 51.38, 53.00, 49.88,
+     48.50, 49.88, 50.37, 52.13, 51.88, 52.87, 54.87, 54.62, 55.87, 57.25},
+    {0.522, 0.458, 0.400, 0.596, 0.693, 0.774, 0.771, 0.706, 0.674, 0.787, 0.550,
+     0.413, 0.542, 0.591, 0.768, 0.759, 0.865, 0.978, 0.990, 1.000, 1.000},
+    {2557.8, 2252.3, 1979.8, 2966.6, 3471.5, 3905.1, 3893.0, 3559.5, 3398.5, 4000.7, 2822.3,
+     2160.6, 2806.2, 3055.7, 3981.3, 3938.4, 4502.6, 5126.9, 5197.3, 5258.2, 5263.3},
+    263300.0};
+
+const HullTable kTable193{
+    {49.00, 49.75, 52.00, 50.00, 48.38, 48.25, 48.75, 49.63, 48.25, 48.25, 51.12,
+     51.50, 49.88, 49.88, 48.75, 47.50, 48.00, 46.25, 48.13, 46.63, 48.12},
+    {0.522, 0.568, 0.705, 0.579, 0.459, 0.443, 0.475, 0.540, 0.420, 0.410, 0.658,
+     0.692, 0.542, 0.538, 0.400, 0.236, 0.261, 0.062, 0.183, 0.007, 0.000},
+    {2557.8, 2789.2, 3504.3, 2877.7, 2299.9, 2224.9, 2383.0, 2707.9, 2131.5, 2085.4, 3355.2,
+     3533.5, 2788.7, 2771.4, 2101.4, 1324.4, 1445.7, 526.7, 1109.6, 290.0, 256.6},
+    256600.0};
+
+// Hull rounds Δ to 3 decimals and trades in lots of 100 shares, so rows agree to that rounding.
+void expect_matches_hull(const HullTable& table) {
+    const auto result = hedge_short_call(kHullCall, kQuantity, table.prices);
+    ASSERT_EQ(result.steps.size(), table.prices.size());
+    for (size_t k = 0; k < table.prices.size(); ++k) {
+        EXPECT_NEAR(result.steps[k].delta, table.deltas[k], 6e-4) << "week " << k;
+        EXPECT_NEAR(result.steps[k].cumulative_cost / 1000.0, table.cumulative_cost_thousands[k],
+                    3.0)
+            << "week " << k;
+    }
+    EXPECT_NEAR(result.hedge_cost, table.hedge_cost, 200.0);
+}
+
+TEST(Hedging, ReproducesHullTable192InTheMoney) { expect_matches_hull(kTable192); }
+
+TEST(Hedging, ReproducesHullTable193OutOfTheMoney) { expect_matches_hull(kTable193); }
+
 TEST(Hedging, RejectsInvalidInputs) {
     const auto path = straight_path(53.0);
     OptionInputs put = kHullCall;
