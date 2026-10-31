@@ -5,6 +5,7 @@
 using nlohmann::json;
 using std::invalid_argument;
 using std::string;
+using std::to_string;
 
 namespace ope::server::json_reader {
 
@@ -47,6 +48,20 @@ OptionType optionType(const json& body) {
 }
 
 // Braced initialisation evaluates left to right, so the first missing field is reported.
+long long integer(const json& body, const char* name, long long lo, long long hi) {
+    const json& value = field(body, name);
+    const string rule = string(name) + " must be an integer in [" + to_string(lo) + ", " +
+                        to_string(hi) + "]";
+    if (!value.is_number_integer()) {
+        throw invalid_argument(rule);
+    }
+    const auto n = value.get<long long>();
+    if (n < lo || n > hi) {
+        throw invalid_argument(rule);
+    }
+    return n;
+}
+
 OptionInputs marketInputs(const json& body, OptionType type) {
     return {type,
             number(body, "spot"),

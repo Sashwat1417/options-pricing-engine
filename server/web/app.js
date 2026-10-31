@@ -3,7 +3,7 @@
 
 const $ = (id) => document.getElementById(id);
 const fields = ["spot", "strike", "days", "rate", "vol"].map($);
-const VIEWS = ["pricing", "greeks", "iv"];
+const VIEWS = ["pricing", "greeks", "iv", "hedging"];
 let view = "pricing";
 let axis = "spot";
 let greek = "delta";
@@ -273,6 +273,10 @@ async function refresh() {
     showError($("error"), "");
     return refreshIv(m);
   }
+  if (view === "hedging") {
+    showError($("error"), "");
+    return refreshHedge(m);
+  }
   try {
     const [callPrice, putPrice, callGreeks, putGreeks] = await Promise.all([
       api("/api/v1/price", { ...m, type: "call" }),
@@ -316,7 +320,12 @@ function showView(name) {
   refresh();
 }
 
-fields.forEach((f) => f.addEventListener("input", scheduleRefresh));
+// Editing the option leaves Hull's path (it only fits Hull's inputs) for a simulated one.
+fields.forEach((f) => f.addEventListener("input", () => {
+  hedgeMode = "simulated";
+  scheduleRefresh();
+}));
+initHedging();
 $("iv-type").addEventListener("change", () => refreshIv(marketInputs()));
 $("iv-price").addEventListener("input", () => refreshIv(marketInputs()));
 
@@ -349,7 +358,7 @@ document.querySelectorAll(".tabs button").forEach((btn) => {
 });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", refresh);
 
-// Deep link to a tab or Greek: /#pricing, /#greeks, /#greeks-theta, /#iv.
+// Deep link to a tab or Greek: /#pricing, /#greeks, /#greeks-theta, /#iv, /#hedging.
 const [linkedView, linkedGreek] = location.hash.slice(1).split("-");
 if (linkedGreek in GREEKS) {
   greek = linkedGreek;

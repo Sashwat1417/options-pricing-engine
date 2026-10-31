@@ -13,6 +13,7 @@
   --grid: #e1e0d9;
   --error: #b42318;
   --error-soft: #fdecea;
+  --gain: #1f7a4d;
   --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
@@ -33,6 +34,7 @@
     --grid: #2c2c2a;
     --error: #ff8a80;
     --error-soft: #3a1714;
+    --gain: #6fcf9c;
   }
 }
 
@@ -143,3 +145,35 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 code { font: 12px var(--f-mono); background: var(--field); padding: 1px 5px; border-radius: 4px; }
 
 [hidden] { display: none !important; }
+
+.button {
+  font: 500 13px var(--f-body);
+  color: var(--ink);
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+.button:hover { border-color: var(--accent); }
+.button.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.button:disabled { opacity: .6; cursor: progress; }
+
+.hedge-params { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+@media (max-width: 720px) { .hedge-params { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.hedge-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-top: 12px; }
+.hedge-actions .seed { flex-direction: row; align-items: center; gap: 6px; margin-left: auto; }
+.hedge-actions .seed input { width: 130px; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 900px) { .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.value.gain { color: var(--gain); }
+.value.loss { color: var(--error); }
+
+.table-wrap { overflow-x: auto; }
+.data-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.data-table th, .data-table td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.data-table th { font: 500 11.5px var(--f-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .04em; white-space: normal; vertical-align: bottom; }
+.data-table td { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.data-table td:first-child, .data-table th:first-child { text-align: left; }
+.chart-box.short { height: 220px; margin-top: 12px; }
