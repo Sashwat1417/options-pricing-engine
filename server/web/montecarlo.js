@@ -5,6 +5,12 @@
 let mcProduct = "vanilla";
 let mcChart = null;
 
+const MC_METHODS = [
+  { key: "plain", name: "Plain", colorVar: "--call" },
+  { key: "antithetic", name: "Antithetic", colorVar: "--put" },
+  { key: "control_variate", name: "Control variate", colorVar: "--gain" },
+];
+
 function mcParams() {
   return {
     type: $("mc-type").value,
@@ -14,58 +20,79 @@ function mcParams() {
 }
 
 const fmt4 = (x) => x.toFixed(4);
-const signed4 = (x) => `${x < 0 ? "−" : "+"}${Math.abs(x).toFixed(4)}`;
-const inSe = (diff, se) => (se > 0 ? `${diff < 0 ? "−" : "+"}${Math.abs(diff / se).toFixed(1)} SE` : "exact");
+const speedupText = (s) => (s === null ? "no error left" : `≈ ${s < 10 ? s.toFixed(1) : Math.round(s).toLocaleString("en-US")}× plain paths`);
 
 function showMcPrice(data) {
-  const diff = data.price - data.bs_price;
-  const inside = data.ci_low <= data.bs_price && data.bs_price <= data.ci_high;
-  $("mc-price").textContent = fmt4(data.price);
-  $("mc-se").textContent = `± ${fmt4(data.std_error)} std error · 95%: `
-    + `${fmt4(data.ci_low)} – ${fmt4(data.ci_high)}`;
   $("mc-bs").textContent = fmt4(data.bs_price);
-  $("mc-diff").textContent = signed4(diff);
-  $("mc-verdict").textContent = inside
-    ? `${inSe(diff, data.std_error)} · Black-Scholes is inside the 95% interval`
-    : `${inSe(diff, data.std_error)} · outside the 95% interval (expect this 1 run in 20)`;
-  $("mc-diff").classList.toggle("loss", !inside);
+  for (const m of MC_METHODS) {
+    const e = data.estimates[m.key];
+    $(`mc-${m.key}`).textContent = fmt4(e.price);
+    $(`mc-${m.key}-se`).textContent = `± ${fmt4(e.std_error)} · 95%: ${fmt4(e.ci_low)} – ${fmt4(e.ci_high)}`;
+    $(`mc-${m.key}-speedup`).textContent = m.key === "plain"
+      ? "the baseline: 1 path = 1 path"
+      : `worth ${speedupText(e.speedup)}`;
+    $(`mc-${m.key}`).classList.toggle("loss", !(e.ci_low <= data.bs_price && data.bs_price <= e.ci_high));
+  }
 }
 
 function showConvergence(data) {
+  const cell = (e) => `${fmt4(e.price)} <span class="hint">± ${fmt4(e.std_error)}</span>`;
+  const gain = (e) => (e.speedup === null ? "–" : `${e.speedup.toFixed(1)}×`);
   $("mc-table").querySelector("tbody").innerHTML = data.rows.map((r) => `
     <tr>
-      <td>${r.paths.toLocaleString("en-US")}</td><td>${fmt4(r.price)}</td>
-      <td>${fmt4(r.std_error)}</td><td>${fmt4(r.ci_low)} – ${fmt4(r.ci_high)}</td>
-      <td>${signed4(r.price - data.bs_price)} <span class="hint">(${inSe(r.price - data.bs_price, r.std_error)})</span></td>
+      <td>${r.paths.toLocaleString("en-US")}</td>
+      <td>${cell(r.estimates.plain)}</td>
+      <td>${cell(r.estimates.antithetic)}</td>
+      <td>${cell(r.estimates.control_variate)}</td>
+      <td>${gain(r.estimates.antithetic)} / ${gain(r.estimates.control_variate)}</td>
     </tr>`).join("")
     + `<tr><td colspan="5" class="hint">Black-Scholes price: ${fmt4(data.bs_price)} · `
-    + `seed ${data.seed} · each row is a separate run from the same seed</td></tr>`;
+    + `seed ${data.seed} · each method uses the same number of simulated prices</td></tr>`;
   drawConvergenceChart(data);
 }
 
 function drawConvergenceChart(data) {
   const ink = color("--muted");
-  const call = color("--call");
   const xs = data.rows.map((r) => r.paths);
-  const series = (key) => data.rows.map((r) => ({ x: r.paths, y: r[key] }));
-  const datasets = [
-    { label: "upper", data: series("ci_high"), borderWidth: 0, pointRadius: 0, fill: false },
-    { label: "95% interval", data: series("ci_low"), borderWidth: 0, pointRadius: 0,
-      fill: "-1", backgroundColor: `${call}33`, pointStyle: "rect" },
-    { label: "Monte Carlo estimate", data: series("price"), borderColor: call,
-      backgroundColor: call, borderWidth: 2, pointRadius: 3, pointStyle: "circle" },
-    { label: "Black-Scholes", data: [{ x: xs[0], y: data.bs_price }, { x: xs[xs.length - 1], y: data.bs_price }],
-      borderColor: color("--put"), backgroundColor: color("--put"), borderWidth: 1.5,
-      borderDash: [6, 4], pointRadius: 0, pointStyle: "line" },
-  ];
+  const series = (key, field) => data.rows.map((r) => ({ x: r.paths, y: r.estimates[key][field] }));
+  const datasets = [];
+  for (const m of MC_METHODS) {
+    const c = color(m.colorVar);
+    datasets.push(
+      { label: `${m.name} upper`, group: m.key, band: true, data: series(m.key, "ci_high"),
+        borderWidth: 0, pointRadius: 0, fill: false },
+      { label: `${m.name} 95%`, group: m.key, band: true, data: series(m.key, "ci_low"),
+        borderWidth: 0, pointRadius: 0, fill: "-1", backgroundColor: `${c}2e` },
+      { label: m.name, group: m.key, data: series(m.key, "price"), borderColor: c,
+        backgroundColor: c, borderWidth: 2, pointRadius: 2.5, pointStyle: "circle" },
+    );
+  }
+  datasets.push({
+    label: "Black-Scholes", group: "bs",
+    data: [{ x: xs[0], y: data.bs_price }, { x: xs[xs.length - 1], y: data.bs_price }],
+    borderColor: color("--payoff"), backgroundColor: color("--payoff"), borderWidth: 1.5,
+    borderDash: [6, 4], pointRadius: 0, pointStyle: "line",
+  });
+
   const options = {
     animation: false,
     maintainAspectRatio: false,
     interaction: { mode: "nearest", axis: "x", intersect: false },
     plugins: {
-      legend: { labels: { color: ink, usePointStyle: true, filter: (item) => item.text !== "upper" } },
+      legend: {
+        labels: { color: ink, usePointStyle: true, filter: (item, chartData) => !chartData.datasets[item.datasetIndex].band },
+        onClick: (event, item, legend) => {
+          const chart = legend.chart;
+          const group = chart.data.datasets[item.datasetIndex].group;
+          const show = !chart.isDatasetVisible(item.datasetIndex);
+          chart.data.datasets.forEach((d, i) => {
+            if (d.group === group) chart.setDatasetVisibility(i, show);
+          });
+          chart.update();
+        },
+      },
       tooltip: {
-        filter: (item) => item.dataset.label !== "upper" && item.dataset.label !== "95% interval",
+        filter: (item) => !item.dataset.band,
         callbacks: {
           title: (items) => `${items[0].parsed.x.toLocaleString("en-US")} paths`,
           label: (item) => `${item.dataset.label}: ${fmt4(item.parsed.y)}`,
@@ -108,7 +135,7 @@ async function refreshMc(m) {
     showConvergence(convergence);
     showError($("mc-error"), "");
   } catch (e) {
-    for (const id of ["mc-price", "mc-bs", "mc-diff"]) $(id).textContent = "–";
+    for (const id of ["mc-bs", ...MC_METHODS.map((x) => `mc-${x.key}`)]) $(id).textContent = "–";
     showError($("mc-error"), e.message);
   }
 }

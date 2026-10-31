@@ -22,7 +22,7 @@ uint64_t mcSeed(const json& body) {
 McPriceRequest McPriceRequest::fromJson(const json& body) {
     McPriceRequest request{};
     request.option = mcOption(body);
-    request.paths = static_cast<int>(json_reader::integer(body, "paths", 2, kMaxPaths));
+    request.paths = static_cast<int>(json_reader::integer(body, "paths", 4, kMaxPaths));
     request.seed = mcSeed(body);
     return request;
 }

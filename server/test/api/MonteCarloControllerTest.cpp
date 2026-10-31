@@ -54,8 +54,13 @@ TEST_F(MonteCarloControllerTest, PriceReturnsEstimateAndBlackScholes) {
     ASSERT_TRUE(res);
     EXPECT_EQ(res->status, 200);
     const json body = json::parse(res->body);
-    for (const char* key : {"price", "std_error", "ci_low", "ci_high", "bs_price", "paths", "seed"}) {
+    for (const char* key : {"bs_price", "paths", "seed"}) {
         EXPECT_TRUE(body.contains(key)) << key;
+    }
+    for (const char* method : {"plain", "antithetic", "control_variate"}) {
+        for (const char* key : {"price", "std_error", "ci_low", "ci_high", "speedup"}) {
+            EXPECT_TRUE(body.at("estimates").at(method).contains(key)) << method << "." << key;
+        }
     }
 }
 
