@@ -41,13 +41,14 @@ HedgePathRequest HedgePathRequest::fromJson(const json& body) {
     HedgePathRequest request{};
     request.option = hedge_fields::callOption(body);
     request.quantity = hedge_fields::quantity(body);
+    request.costRate = hedge_fields::costRate(body);
     request.premium = json_reader::number(body, "premium");
     if (request.premium < 0.0) {
         throw invalid_argument("premium must be >= 0");
     }
     request.prices = parsePrices(body);
     if (request.prices.empty()) {
-        request.drift = hedge_fields::drift(body);
+        request.world = hedge_fields::realWorld(body, request.option.volatility);
         request.rebalances =
             static_cast<int>(json_reader::integer(body, "rebalances", 1, kMaxRebalances));
         request.seed = hedge_fields::seed(body);

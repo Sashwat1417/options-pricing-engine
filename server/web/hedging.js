@@ -27,6 +27,8 @@ function hedgeParams() {
     quantity: parseFloat($("h-quantity").value),
     premium: parseFloat($("h-premium").value),
     drift: parseFloat($("h-drift").value) / 100,
+    realVol: parseFloat($("h-real-vol").value) / 100,
+    costRate: parseFloat($("h-cost-rate").value) / 100,
     rebalances: parseInt($("h-rebalances").value, 10),
     seed: parseInt($("h-seed").value, 10),
   };
@@ -46,12 +48,14 @@ const shares = (x) => {
 
 function weeks(timeInYears) {
   const w = timeInYears * 52;
-  // Hull's T = 0.3846 years is 19.9992 weeks, so allow a little slack for whole weeks.
   return Math.abs(w - Math.round(w)) < 0.01 ? String(Math.round(w)) : w.toFixed(2);
 }
 
 function showHedgeResult(data, m) {
   $("h-cost").textContent = usd(data.pv_hedge_cost);
+  $("h-cost-note").textContent = data.total_trading_cost > 0
+    ? `incl. ${usd(data.total_trading_cost)} of trading costs`
+    : "what hedging cost the bank on this path";
   $("h-bs").textContent = usd(data.bs_value);
   $("h-fair").textContent = `fair value: ${(data.bs_value / hedgeParams().quantity).toFixed(2)}`;
   $("h-premium-out").textContent = usd(data.premium_received);
@@ -67,6 +71,7 @@ function showHedgeResult(data, m) {
     <tr>
       <td>${weeks(s.time)}</td><td>${s.spot.toFixed(2)}</td><td>${s.delta.toFixed(3)}</td>
       <td>${shares(s.shares_bought)}</td><td>${thousands(s.purchase_cost)}</td>
+      <td>${thousands(s.trading_cost)}</td>
       <td>${thousands(s.cumulative_cost)}</td>
       <td>${s === last ? "" : thousands(s.interest)}</td>
     </tr>`).join("");
@@ -159,11 +164,13 @@ function drawHedgeChart(data, m) {
 
 async function refreshHedge(m) {
   const p = hedgeParams();
-  const body = { ...m, quantity: p.quantity, premium: p.premium };
+  const body = { ...m, quantity: p.quantity, premium: p.premium, cost_rate: p.costRate };
   if (hedgeMode === "simulated") {
-    Object.assign(body, { drift: p.drift, rebalances: p.rebalances, seed: p.seed });
-    $("h-source").textContent =
-      `Simulated path · seed ${p.seed} · real drift μ = ${(p.drift * 100).toFixed(1)}% · ${p.rebalances} rebalances`;
+    Object.assign(body, { drift: p.drift, real_vol: p.realVol, rebalances: p.rebalances,
+                          seed: p.seed });
+    $("h-source").textContent = `Simulated path · seed ${p.seed} · real drift μ = `
+      + `${(p.drift * 100).toFixed(1)}% · realised vol ${(p.realVol * 100).toFixed(1)}% `
+      + `(hedged at implied ${(m.vol * 100).toFixed(1)}%) · ${p.rebalances} rebalances`;
   } else {
     body.prices = HULL_PATHS[hedgeMode].prices;
     $("h-source").textContent = `${HULL_PATHS[hedgeMode].label} · 20 weekly rebalances`;
@@ -184,8 +191,8 @@ async function runFrequencyStudy() {
   button.textContent = "Running…";
   try {
     const data = await api("/api/v1/hedge/frequency", {
-      ...m, quantity: p.quantity, drift: p.drift, seed: p.seed,
-      paths: parseInt($("f-paths").value, 10),
+      ...m, quantity: p.quantity, drift: p.drift, real_vol: p.realVol, seed: p.seed,
+      cost_rate: p.costRate, paths: parseInt($("f-paths").value, 10),
     });
     const totalWeeks = m.expiry * 52;
     const label = (n) => `${(totalWeeks / n).toFixed(2).replace(/\.?0+$/, "")} wk`;
@@ -236,12 +243,100 @@ function drawFrequencyChart(data, label) {
   });
 }
 
-function loadHull(key) {
-  hedgeMode = key;
+async function runVolStudy() {
+  const m = marketInputs();
+  const p = hedgeParams();
+  const button = $("v-run");
+  button.disabled = true;
+  button.textContent = "Running…";
+  try {
+    const data = await api("/api/v1/hedge/vol-study", {
+      ...m, quantity: p.quantity, premium: p.premium, drift: p.drift, rebalances: p.rebalances,
+      seed: p.seed, cost_rate: p.costRate, paths: parseInt($("v-paths").value, 10),
+    });
+    const pct = (v) => `${(v * 100).toFixed(1)}%`;
+    $("v-summary").textContent = data.premium_implied_vol === null
+      ? `Sold at implied ${pct(data.implied_vol)}.`
+      : `Sold at implied ${pct(data.implied_vol)}; the premium of ${p.premium} per option is the `
+        + `Black-Scholes price at ${pct(data.premium_implied_vol)} vol, so the bank breaks even `
+        + `when the stock really moves at about that vol.`;
+    $("vol-table").querySelector("tbody").innerHTML = data.rows.map((r) => `
+      <tr>
+        <td>${pct(r.real_vol)}${Math.abs(r.real_vol - data.implied_vol) < 1e-9 ? " <span class=\"hint\">(= implied)</span>" : ""}</td>
+        <td>${usd(r.mean_pv_cost)}</td><td>${usd(r.sd_pv_cost)}</td>
+        <td class="${r.mean_pnl >= 0 ? "gain" : "loss"}">${signedUsd(r.mean_pnl)}</td>
+      </tr>`).join("")
+      + `<tr><td colspan="4" class="hint">Premium received: ${usd(data.premium_received)} · `
+      + `Black-Scholes value at implied vol: ${usd(data.bs_value)} · `
+      + `${data.paths.toLocaleString("en-US")} paths per row · ${data.rebalances} rebalances</td></tr>`;
+    $("vol-chart-box").hidden = false;
+    drawVolChart(data, pct);
+    showError($("v-error"), "");
+  } catch (e) {
+    showError($("v-error"), e.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Run study";
+  }
+}
+
+function drawVolChart(data, pct) {
+  const ink = color("--muted");
+  const options = {
+    animation: false,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: (item) => `Mean bank P&L: ${signedUsd(item.parsed.y)}` } },
+    },
+    scales: {
+      x: { title: { display: true, text: "Realised vol (stock really moved at)", color: ink },
+           ticks: { color: ink }, grid: { display: false } },
+      y: { title: { display: true, text: "Mean bank P&L", color: ink },
+           ticks: { color: ink, callback: (v) => signedUsd(v) },
+           grid: { color: (ctx) => (ctx.tick.value === 0 ? ink : color("--grid")) } },
+    },
+  };
+  if (hedgeCharts.vol) hedgeCharts.vol.destroy();
+  hedgeCharts.vol = new Chart($("vol-chart"), {
+    type: "bar",
+    data: {
+      labels: data.rows.map((r) => pct(r.real_vol)),
+      datasets: [{
+        data: data.rows.map((r) => r.mean_pnl),
+        backgroundColor: data.rows.map((r) => color(r.mean_pnl >= 0 ? "--gain" : "--error")),
+        borderRadius: 4,
+      }],
+    },
+    options,
+  });
+}
+
+function applyHullSetup() {
   for (const [id, value] of Object.entries(HULL_INPUTS)) $(id).value = value;
   $("h-rebalances").value = 20;
-  $("h-premium").value = 3;  // Hull 19.1: sold for $300,000 on 100,000 shares
+  $("h-premium").value = 3;
+  $("h-real-vol").value = 20;
+  $("h-cost-rate").value = 0;
+  $("inputs-hint").textContent = "Hull's Ch 19 example (19.1), loaded for hedging. Shared by every tab.";
+}
+
+function loadHull(key) {
+  hedgeMode = key;
+  applyHullSetup();
   refreshHedge(marketInputs());
+}
+
+let hedgingOpened = false;
+
+// Called by app.js when the Hedging tab is shown: the first time, swap untouched Ch 15
+// defaults for Hull's Ch 19 option, which the hedging premium and story are built around.
+function prepareHedgingView() {
+  if (hedgingOpened) return;
+  hedgingOpened = true;
+  const untouched = ["spot", "strike", "days", "rate", "vol"].every(
+    (id) => $(id).value === $(id).defaultValue);
+  if (untouched) applyHullSetup();
 }
 
 // Called by app.js once its helpers exist.
@@ -253,11 +348,13 @@ function initHedging() {
   });
   $("h-hull192").addEventListener("click", () => loadHull("hull192"));
   $("h-hull193").addEventListener("click", () => loadHull("hull193"));
-  for (const id of ["h-drift", "h-quantity", "h-rebalances", "h-premium", "h-seed"]) {
+  for (const id of ["h-drift", "h-real-vol", "h-quantity", "h-rebalances", "h-premium",
+                    "h-cost-rate", "h-seed"]) {
     $(id).addEventListener("input", () => {
       hedgeMode = "simulated";
       scheduleRefresh();
     });
   }
   $("f-run").addEventListener("click", runFrequencyStudy);
+  $("v-run").addEventListener("click", runVolStudy);
 }

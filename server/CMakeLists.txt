@@ -13,12 +13,14 @@ add_library(ope_server_core
     main/src/request/HedgeFrequencyRequest.cpp
     main/src/request/HedgePathRequest.cpp
     main/src/request/HedgeRequestFields.cpp
+    main/src/request/HedgeVolStudyRequest.cpp
     main/src/request/IvRequest.cpp
     main/src/request/JsonReader.cpp
     main/src/request/PriceRequest.cpp
     main/src/request/SweepRequest.cpp
     main/src/response/HedgeFrequencyResponse.cpp
     main/src/response/HedgePathResponse.cpp
+    main/src/response/HedgeVolStudyResponse.cpp
     main/src/response/SweepResponse.cpp
     main/src/service/HedgingService.cpp
     main/src/service/PricingService.cpp

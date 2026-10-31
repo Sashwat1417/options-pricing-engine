@@ -1,5 +1,6 @@
 #include "request/HedgeFrequencyRequest.hpp"
 #include "request/HedgePathRequest.hpp"
+#include "request/HedgeVolStudyRequest.hpp"
 
 #include <gtest/gtest.h>
 
@@ -10,6 +11,7 @@ using nlohmann::json;
 using ope::OptionType;
 using ope::server::HedgeFrequencyRequest;
 using ope::server::HedgePathRequest;
+using ope::server::HedgeVolStudyRequest;
 using std::invalid_argument;
 using std::string;
 
@@ -48,10 +50,30 @@ TEST(HedgePathRequest, ParsesSimulatedPath) {
     EXPECT_DOUBLE_EQ(r.option.volatility, 0.2);
     EXPECT_DOUBLE_EQ(r.quantity, 1e5);
     EXPECT_DOUBLE_EQ(r.premium, 3.0);
-    EXPECT_DOUBLE_EQ(r.drift, 0.13);
+    EXPECT_DOUBLE_EQ(r.world.drift, 0.13);
+    EXPECT_DOUBLE_EQ(r.world.volatility, 0.2);  // real_vol defaults to the implied vol
     EXPECT_EQ(r.rebalances, 20);
     EXPECT_EQ(r.seed, 42u);
     EXPECT_TRUE(r.prices.empty());
+}
+
+TEST(HedgePathRequest, RealVolOverridesImpliedForThePath) {
+    json body = hullPath();
+    body["real_vol"] = 0.3;
+    const auto r = HedgePathRequest::fromJson(body);
+    EXPECT_DOUBLE_EQ(r.option.volatility, 0.2);
+    EXPECT_DOUBLE_EQ(r.world.volatility, 0.3);
+    body["real_vol"] = -0.1;
+    EXPECT_NE(errorFor(body).find("real_vol"), string::npos);
+}
+
+TEST(HedgePathRequest, CostRateDefaultsToZeroAndIsBounded) {
+    EXPECT_DOUBLE_EQ(HedgePathRequest::fromJson(hullPath()).costRate, 0.0);
+    json body = hullPath();
+    body["cost_rate"] = 0.001;
+    EXPECT_DOUBLE_EQ(HedgePathRequest::fromJson(body).costRate, 0.001);
+    body["cost_rate"] = 0.5;
+    EXPECT_NE(errorFor(body).find("cost_rate"), string::npos);
 }
 
 TEST(HedgePathRequest, GivenPricesReplaceSimulation) {
@@ -96,4 +118,16 @@ TEST(HedgeFrequencyRequest, CapsTotalWork) {
 
     body["paths"] = 20000;
     EXPECT_NE(errorFor(body, true).find("paths"), string::npos);
+}
+
+TEST(HedgeVolStudyRequest, DefaultsAndWorkCap) {
+    json body = hullPath();
+    body["paths"] = 1000;
+    const auto r = HedgeVolStudyRequest::fromJson(body);
+    EXPECT_EQ(r.realVols, (std::vector<double>{0.10, 0.15, 0.20, 0.25, 0.30}));
+    EXPECT_EQ(r.rebalances, 20);
+
+    body["paths"] = 5000;
+    body["rebalances"] = 100;  // 5000 × 100 × 5 = 2,500,000 > 2,000,000
+    EXPECT_THROW((void)HedgeVolStudyRequest::fromJson(body), invalid_argument);
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ope/hedging.hpp"
 #include "ope/option.hpp"
 
 #include <nlohmann/json.hpp>
@@ -12,7 +13,10 @@ namespace ope::server::hedge_fields {
 // spot, strike, expiry, rate, vol as a call.
 OptionInputs callOption(const nlohmann::json& body);
 double quantity(const nlohmann::json& body);
-double drift(const nlohmann::json& body);
+// drift (required) and real_vol (optional, defaults to the implied vol the option was sold at).
+RealWorld realWorld(const nlohmann::json& body, double impliedVol);
 std::uint64_t seed(const nlohmann::json& body);
+// Optional cost per trade as a fraction of its value, in [0, 0.1]; 0 if absent.
+double costRate(const nlohmann::json& body);
 
 }  // namespace ope::server::hedge_fields

@@ -27,12 +27,30 @@ double quantity(const json& body) {
     return q;
 }
 
-double drift(const json& body) {
+RealWorld realWorld(const json& body, double impliedVol) {
     const double mu = json_reader::number(body, "drift");
     if (fabs(mu) > 5.0) {
         throw invalid_argument("drift must be in [-5, 5]");
     }
-    return mu;
+    double vol = impliedVol;
+    if (body.contains("real_vol")) {
+        vol = json_reader::number(body, "real_vol");
+        if (vol < 0.0 || vol > 5.0) {
+            throw invalid_argument("real_vol must be in [0, 5]");
+        }
+    }
+    return {mu, vol};
+}
+
+double costRate(const json& body) {
+    if (!body.contains("cost_rate")) {
+        return 0.0;
+    }
+    const double rate = json_reader::number(body, "cost_rate");
+    if (rate < 0.0 || rate > 0.1) {
+        throw invalid_argument("cost_rate must be in [0, 0.1]");
+    }
+    return rate;
 }
 
 uint64_t seed(const json& body) {

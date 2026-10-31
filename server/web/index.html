@@ -31,7 +31,7 @@
       <label>Time to expiry (days) <input id="days" type="number" step="any" value="182.5"></label>
       <label>Risk-free rate r (%) <input id="rate" type="number" step="any" value="10"></label>
       <label>Volatility σ (%) <input id="vol" type="number" step="any" value="20"></label>
-      <p class="hint">Defaults are Hull's Ch 15 example. Shared by every tab.</p>
+      <p id="inputs-hint" class="hint">Defaults are Hull's Ch 15 example. Shared by every tab.</p>
       <p id="error" class="error" role="alert" hidden></p>
     </section>
 
@@ -121,14 +121,18 @@
       <section class="card" aria-labelledby="hedge-title">
         <h2 id="hedge-title">Delta-hedge a sold call</h2>
         <p class="hint">A bank sells calls and holds Δ shares, rebalancing at each step along one
-          stock path (Hull 19.4). The option is set by the inputs on the left; σ is the
-          volatility used both to simulate the stock and to compute Δ.</p>
+          stock path (Hull 19.4). The option is set by the inputs on the left: σ there is the
+          implied vol the option was sold at, used for Δ. The stock itself moves at the realised
+          vol below.</p>
         <div class="hedge-params">
           <label>Real drift μ (%) <input id="h-drift" type="number" step="any" value="13"></label>
+          <label>Realised vol (%) <input id="h-real-vol" type="number" step="any" min="0" value="20"></label>
           <label>Options sold <input id="h-quantity" type="number" step="any" value="100000"></label>
           <label>Rebalances <input id="h-rebalances" type="number" step="1" min="1" max="1000" value="20"></label>
           <label>Premium per option <input id="h-premium" type="number" step="any" value="3">
             <span id="h-fair" class="hint"></span></label>
+          <label>Trading cost (% per trade) <input id="h-cost-rate" type="number" step="any" min="0" max="10" value="0">
+            <span class="hint">spread + commission, e.g. 0.1</span></label>
         </div>
         <div class="hedge-actions">
           <button type="button" id="h-new" class="button primary">New path</button>
@@ -144,7 +148,7 @@
         <div class="card stat">
           <span class="label">Hedge cost (today's value)</span>
           <span id="h-cost" class="value small">–</span>
-          <span class="hint">what hedging cost the bank on this path</span>
+          <span id="h-cost-note" class="hint">what hedging cost the bank on this path</span>
         </div>
         <div class="card stat">
           <span class="label">Black-Scholes value</span>
@@ -177,7 +181,8 @@
             <thead>
               <tr>
                 <th>Week</th><th>Stock price</th><th>Delta</th><th>Shares purchased</th>
-                <th>Cost of shares ($000)</th><th>Cumulative cost incl. interest ($000)</th>
+                <th>Cost of shares ($000)</th><th>Trading cost ($000)</th>
+                <th>Cumulative cost incl. interest ($000)</th>
                 <th>Interest cost ($000)</th>
               </tr>
             </thead>
@@ -205,6 +210,28 @@
           </table>
         </div>
         <div id="freq-chart-box" class="chart-box short" hidden><canvas id="freq-chart" aria-label="Spread of hedge cost by rebalancing frequency"></canvas></div>
+      </section>
+
+      <section class="card" aria-labelledby="vol-title">
+        <h2 id="vol-title">Volatility trading: what if the stock moves more or less than priced?</h2>
+        <p class="hint">The bank sells at the implied σ on the left and hedges with it, but the stock
+          really moves at different realised vols. Calm stocks are cheap to hedge, wild ones
+          expensive: the P&amp;L depends on how much the stock moves, not which way.</p>
+        <div class="hedge-actions">
+          <label class="seed">Paths <input id="v-paths" type="number" step="1" min="2" max="5000" value="1000"></label>
+          <button type="button" id="v-run" class="button primary">Run study</button>
+        </div>
+        <p id="v-error" class="error" role="alert" hidden></p>
+        <p id="v-summary" class="hint"></p>
+        <div class="table-wrap">
+          <table class="data-table" id="vol-table">
+            <thead>
+              <tr><th>Realised vol</th><th>Mean hedge cost</th><th>Std dev</th><th>Mean bank P&amp;L</th></tr>
+            </thead>
+            <tbody><tr><td colspan="4" class="hint">Run the study to fill this in.</td></tr></tbody>
+          </table>
+        </div>
+        <div id="vol-chart-box" class="chart-box short" hidden><canvas id="vol-chart" aria-label="Mean bank P&amp;L by realised volatility"></canvas></div>
       </section>
     </div>
   </main>

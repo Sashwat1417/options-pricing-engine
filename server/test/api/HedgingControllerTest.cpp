@@ -75,3 +75,12 @@ TEST_F(HedgingControllerTest, BadInputIs400) {
     EXPECT_NE(json::parse(res->body).at("error").get<string>().find("missing field"),
               string::npos);
 }
+
+TEST_F(HedgingControllerTest, VolStudyReturnsOneRowPerRealisedVol) {
+    const auto res = post("/api/v1/hedge/vol-study", R"({"spot":49,"strike":50,"expiry":0.3846,
+        "rate":0.05,"vol":0.2,"quantity":100000,"premium":3,"drift":0.13,"rebalances":20,
+        "paths":200,"seed":7,"real_vols":[0.1,0.3]})");
+    ASSERT_TRUE(res);
+    EXPECT_EQ(res->status, 200);
+    EXPECT_EQ(json::parse(res->body).at("rows").size(), 2u);
+}

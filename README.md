@@ -4,7 +4,7 @@
 
 Multi-layer C++ options pricing engine: closed-form Black-Scholes, Monte Carlo simulation, and delta-hedging P&amp;L, with Python visualisation.
 
-**Live demo: https://ope-server.onrender.com** (free tier: the first request after 15 idle minutes takes about a minute)
+**Live demo: https://ope-server.onrender.com** (free tier: it may be suspended, and the first request after 15 idle minutes takes about a minute)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/price_vs_spot-dark.png">
@@ -20,6 +20,23 @@ Multi-layer C++ options pricing engine: closed-form Black-Scholes, Monte Carlo s
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/price_vs_vol-dark.png">
   <img alt="Call and put price rising with volatility" src="docs/images/price_vs_vol.png">
 </picture>
+
+## What's built
+
+| Layer | Module | What it does | Checked against |
+|---|---|---|---|
+| **1 · Black-Scholes** | `black_scholes/` | Price European calls and puts; implied vol by bisection; Greeks Δ Θ Γ ν ρ; sweeps | Hull Ch 15 & 19 examples; put-call parity; finite differences; the BS PDE Θ + rSΔ + ½σ²S²Γ = rV |
+| **2 · Monte Carlo** | `monte_carlo/` | GBM path simulator (exact lognormal steps, seeded). Exotic pricing: *next* | Monte Carlo call price = Black-Scholes |
+| **3 · Delta hedging** | `hedging/` | Hedge a sold call along a path; cost and P&L; many-path statistics; realised ≠ implied vol; transaction costs | Hull Tables 19.2 / 19.3 row by row; Table 19.1 pattern |
+
+Around them:
+- **`cli/`**: the `ope` command-line tool;
+- **`server/`**: `ope-server`, a REST API plus a web UI with **Pricing**, **Greeks**, **Implied vol** and **Hedging** tabs;
+- **`viz/`**: Python charts.
+
+Packaging and delivery: Docker, a Kubernetes manifest, GitHub Actions CI on Linux and macOS, and Render.
+
+Notes: [trading costs, latency and why C++](docs/notes/trading-costs-and-latency.md).
 
 ## Build and test
 
@@ -124,15 +141,16 @@ curl localhost:8080/api/v1/price -H 'Content-Type: application/json' \
 | Endpoint | Body | Response |
 |---|---|---|
 | `GET /health` | | `{"status":"ok"}` |
-| `GET /version` | | `{"version": "0.4.0", "commit": "<deployed git sha>"}` |
+| `GET /version` | | `{"version": "0.5.0", "commit": "<deployed git sha>"}` |
 | `POST /api/v1/price` | `type, spot, strike, expiry, rate, vol` | `{"price": …}` |
 | `POST /api/v1/iv` | `type, spot, strike, expiry, rate, price` | `{"implied_vol": …}` |
 | `POST /api/v1/sweep` | `spot, strike, expiry, rate, vol, vary, from, to, steps` (`vol` not needed when `vary` is `vol`) | arrays `x, call, put, call_payoff, put_payoff, call_delta, put_delta, call_theta, put_theta, call_gamma, put_gamma, call_vega, put_vega, call_rho, put_rho` |
 | `POST /api/v1/greeks` | `type, spot, strike, expiry, rate, vol` | `{"delta": 0.5216…, "theta": −4.3054…, "gamma": 0.0655…, "vega": 12.105…, "rho": 8.906…}` (theta per year, vega/rho per unit of σ/r) |
-| `POST /api/v1/hedge/path` | `spot, strike, expiry, rate, vol, quantity, premium` + either `drift, rebalances, seed` (simulate) or `prices` (a given path) | `steps` rows (Hull Table 19.2 layout), `hedge_cost, pv_hedge_cost, bs_value, premium_received, pnl, exercised` |
-| `POST /api/v1/hedge/frequency` | `spot, strike, expiry, rate, vol, quantity, drift, paths, seed, rebalances?` | `rows` of `rebalances, mean_pv_cost, sd_pv_cost, sd_over_bs` (Hull Table 19.1) |
+| `POST /api/v1/hedge/path` | `spot, strike, expiry, rate, vol, quantity, premium` + either `drift, real_vol?, rebalances, seed` (simulate) or `prices` (a given path), `cost_rate?` | `steps` rows (Hull Table 19.2 layout, incl. `trading_cost`), `total_trading_cost, hedge_cost, pv_hedge_cost, bs_value, premium_received, pnl, exercised` |
+| `POST /api/v1/hedge/frequency` | `spot, strike, expiry, rate, vol, quantity, drift, real_vol?, paths, seed, rebalances?` | `rows` of `rebalances, mean_pv_cost, sd_pv_cost, sd_over_bs` (Hull Table 19.1) |
+| `POST /api/v1/hedge/vol-study` | `spot, strike, expiry, rate, vol, quantity, premium, drift, rebalances, paths, seed, real_vols?` | `rows` of `real_vol, mean_pv_cost, sd_pv_cost, mean_pnl`, plus `premium_implied_vol` (the break-even realised vol) |
 
-Bad input returns `400 {"error": "..."}`. Bodies over 64 KB get `413`. Each request is logged as one JSON line with its duration.
+Bad input returns `400 {"error": "..."}`. `vol` is the implied vol the option is priced and hedged at; `real_vol` (default: `vol`) is how the simulated stock actually moves. `cost_rate` (default 0, e.g. `0.001` = 0.1%) charges every hedge trade that fraction of its value. Bodies over 64 KB get `413`. Each request is logged as one JSON line with its duration.
 
 ## Charts
 

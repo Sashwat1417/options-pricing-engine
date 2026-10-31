@@ -51,8 +51,6 @@ void logRequest(const httplib::Request& req, const httplib::Response& res) {
 }  // namespace
 
 int main() {
-    // Block SIGINT/SIGTERM in every thread; a dedicated thread waits for them and stops the
-    // server, so `docker stop` and Ctrl-C shut down cleanly instead of being killed.
     sigset_t signals;
     sigemptyset(&signals);
     sigaddset(&signals, SIGINT);

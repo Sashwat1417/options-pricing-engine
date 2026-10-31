@@ -29,6 +29,8 @@ using ope::OptionType;
 const OptionInputs kHullCall{OptionType::Call, 49.0, 50.0, 0.3846, 0.05, 0.20};
 constexpr double kQuantity = 100000.0;
 constexpr double kRealWorldDrift = 0.13;
+// Hull 19.1: the stock really moves at 13% drift and the same 20% vol the option was sold at.
+const ope::RealWorld kHullWorld{kRealWorldDrift, 0.20};
 
 // 21 weekly prices from 49 to `end`, moving in a straight line.
 vector<double> straight_path(double end, int steps = 20) {
@@ -199,9 +201,9 @@ TEST(Hedging, ReproducesHullTable192InTheMoney) { expect_matches_hull(kTable192)
 TEST(Hedging, ReproducesHullTable193OutOfTheMoney) { expect_matches_hull(kTable193); }
 
 TEST(HedgeSimulatedPath, SameSeedGivesSamePath) {
-    const auto a = ope::hedge_simulated_path(kHullCall, kQuantity, kRealWorldDrift, 20, 42);
-    const auto b = ope::hedge_simulated_path(kHullCall, kQuantity, kRealWorldDrift, 20, 42);
-    const auto c = ope::hedge_simulated_path(kHullCall, kQuantity, kRealWorldDrift, 20, 43);
+    const auto a = ope::hedge_simulated_path(kHullCall, kQuantity, kHullWorld, 20, 42);
+    const auto b = ope::hedge_simulated_path(kHullCall, kQuantity, kHullWorld, 20, 42);
+    const auto c = ope::hedge_simulated_path(kHullCall, kQuantity, kHullWorld, 20, 43);
     ASSERT_EQ(a.steps.size(), 21u);
     EXPECT_DOUBLE_EQ(a.steps.front().spot, kHullCall.spot);
     EXPECT_DOUBLE_EQ(a.pv_hedge_cost, b.pv_hedge_cost);
@@ -209,7 +211,7 @@ TEST(HedgeSimulatedPath, SameSeedGivesSamePath) {
 }
 
 TEST(HedgeSimulatedPath, MatchesHedgingTheSimulatedPath) {
-    const auto result = ope::hedge_simulated_path(kHullCall, kQuantity, kRealWorldDrift, 20, 42);
+    const auto result = ope::hedge_simulated_path(kHullCall, kQuantity, kHullWorld, 20, 42);
     vector<double> path;
     for (const auto& step : result.steps) path.push_back(step.spot);
     EXPECT_DOUBLE_EQ(hedge_short_call(kHullCall, kQuantity, path).pv_hedge_cost,
@@ -217,26 +219,106 @@ TEST(HedgeSimulatedPath, MatchesHedgingTheSimulatedPath) {
 }
 
 TEST(HedgeCostStats, MeanIsBlackScholesValueAndSpreadShrinks) {
-    const auto weekly = ope::hedge_cost_stats(kHullCall, kQuantity, kRealWorldDrift, 20, 2000, 7);
-    const auto daily = ope::hedge_cost_stats(kHullCall, kQuantity, kRealWorldDrift, 80, 2000, 7);
+    const auto weekly = ope::hedge_cost_stats(kHullCall, kQuantity, kHullWorld, 20, 2000, 7);
+    const auto daily = ope::hedge_cost_stats(kHullCall, kQuantity, kHullWorld, 80, 2000, 7);
     EXPECT_NEAR(weekly.bs_value, ope::price(kHullCall) * kQuantity, 1e-6);
     EXPECT_NEAR(weekly.mean_pv_cost, weekly.bs_value, 4.0 * weekly.sd_pv_cost / sqrt(2000.0));
     EXPECT_LT(daily.sd_pv_cost, weekly.sd_pv_cost);
 }
 
 TEST(HedgeCostStats, SameSeedGivesSameStats) {
-    const auto a = ope::hedge_cost_stats(kHullCall, kQuantity, kRealWorldDrift, 20, 200, 9);
-    const auto b = ope::hedge_cost_stats(kHullCall, kQuantity, kRealWorldDrift, 20, 200, 9);
+    const auto a = ope::hedge_cost_stats(kHullCall, kQuantity, kHullWorld, 20, 200, 9);
+    const auto b = ope::hedge_cost_stats(kHullCall, kQuantity, kHullWorld, 20, 200, 9);
     EXPECT_DOUBLE_EQ(a.mean_pv_cost, b.mean_pv_cost);
     EXPECT_DOUBLE_EQ(a.sd_pv_cost, b.sd_pv_cost);
 }
 
 TEST(HedgeCostStats, RejectsTooFewPathsOrSteps) {
-    EXPECT_THROW((void)ope::hedge_cost_stats(kHullCall, kQuantity, 0.1, 20, 1, 1),
+    EXPECT_THROW((void)ope::hedge_cost_stats(kHullCall, kQuantity, kHullWorld, 20, 1, 1),
                  invalid_argument);
-    EXPECT_THROW((void)ope::hedge_cost_stats(kHullCall, kQuantity, 0.1, 0, 100, 1),
+    EXPECT_THROW((void)ope::hedge_cost_stats(kHullCall, kQuantity, kHullWorld, 0, 100, 1),
                  invalid_argument);
-    EXPECT_THROW((void)ope::hedge_simulated_path(kHullCall, kQuantity, 0.1, 0, 1),
+    EXPECT_THROW((void)ope::hedge_simulated_path(kHullCall, kQuantity, kHullWorld, 0, 1),
+                 invalid_argument);
+}
+
+// Hedging at implied vol while the stock really moves at another vol (Wilmott): a calmer stock
+// is cheaper to hedge than the Black-Scholes value, a wilder one dearer.
+TEST(HedgeCostStats, CheaperWhenRealisedVolIsBelowImplied) {
+    const auto calm = ope::hedge_cost_stats(kHullCall, kQuantity, {kRealWorldDrift, 0.10}, 80,
+                                            2000, 21);
+    EXPECT_LT(calm.mean_pv_cost, calm.bs_value - 4.0 * calm.sd_pv_cost / sqrt(2000.0));
+}
+
+TEST(HedgeCostStats, DearerWhenRealisedVolIsAboveImplied) {
+    const auto wild = ope::hedge_cost_stats(kHullCall, kQuantity, {kRealWorldDrift, 0.30}, 80,
+                                            2000, 23);
+    EXPECT_GT(wild.mean_pv_cost, wild.bs_value + 4.0 * wild.sd_pv_cost / sqrt(2000.0));
+}
+
+TEST(HedgeCostStats, MeanCostRisesWithRealisedVol) {
+    double previous = 0.0;
+    for (double vol : {0.10, 0.15, 0.20, 0.25, 0.30}) {
+        const double mean = ope::hedge_cost_stats(kHullCall, kQuantity, {kRealWorldDrift, vol},
+                                                  40, 1000, 25)
+                                .mean_pv_cost;
+        EXPECT_GT(mean, previous) << "realised vol " << vol;
+        previous = mean;
+    }
+}
+
+TEST(HedgeSimulatedPath, RejectsNegativeRealisedVol) {
+    EXPECT_THROW(
+        (void)ope::hedge_simulated_path(kHullCall, kQuantity, {kRealWorldDrift, -0.1}, 20, 1),
+        invalid_argument);
+}
+
+// Hull 19.10: every trade pays a cost (spread + commission), here a fraction of its value.
+TEST(TransactionCosts, ZeroRateChangesNothing) {
+    const auto path = straight_path(53.0);
+    const auto free = hedge_short_call(kHullCall, kQuantity, path);
+    const auto zero = hedge_short_call(kHullCall, kQuantity, path, 0.0);
+    EXPECT_DOUBLE_EQ(free.pv_hedge_cost, zero.pv_hedge_cost);
+    EXPECT_DOUBLE_EQ(zero.total_trading_cost, 0.0);
+}
+
+TEST(TransactionCosts, EachTradePaysRateTimesItsValueOnBuysAndSells) {
+    const double rate = 0.001;
+    const auto steps = hedge_short_call(kHullCall, kQuantity, kTable192.prices, rate).steps;
+    double total = 0.0;
+    for (const auto& s : steps) {
+        EXPECT_NEAR(s.trading_cost, rate * std::fabs(s.shares_bought) * s.spot, 1e-6);
+        EXPECT_GE(s.trading_cost, 0.0);
+        total += s.trading_cost;
+    }
+    // Week 0 buys 52,160 shares at $49: about $2,556 of costs.
+    EXPECT_NEAR(steps.front().trading_cost, 0.001 * 52160.0 * 49.0, 5.0);
+    EXPECT_NEAR(hedge_short_call(kHullCall, kQuantity, kTable192.prices, rate).total_trading_cost,
+                total, 1e-6);
+}
+
+TEST(TransactionCosts, AddToTheHedgeCostWithInterest) {
+    const auto free = hedge_short_call(kHullCall, kQuantity, kTable192.prices);
+    const auto costly = hedge_short_call(kHullCall, kQuantity, kTable192.prices, 0.001);
+    EXPECT_GT(costly.hedge_cost - free.hedge_cost, costly.total_trading_cost);  // plus interest
+    EXPECT_LT(costly.hedge_cost - free.hedge_cost, costly.total_trading_cost * 1.02);
+}
+
+// With costs, rebalancing more often stops being free: the mean cost rises with frequency.
+TEST(TransactionCosts, MeanCostRisesWithRebalancingFrequency) {
+    const double rate = 0.002;
+    const auto weekly = ope::hedge_cost_stats(kHullCall, kQuantity, kHullWorld, 20, 2000, 31, rate);
+    const auto often = ope::hedge_cost_stats(kHullCall, kQuantity, kHullWorld, 160, 2000, 31, rate);
+    const double se = std::sqrt((weekly.sd_pv_cost * weekly.sd_pv_cost +
+                                 often.sd_pv_cost * often.sd_pv_cost) / 2000.0);
+    EXPECT_GT(often.mean_pv_cost, weekly.mean_pv_cost + 4.0 * se);
+    EXPECT_GT(weekly.mean_pv_cost, weekly.bs_value);
+}
+
+TEST(TransactionCosts, RejectsInvalidRates) {
+    EXPECT_THROW((void)hedge_short_call(kHullCall, kQuantity, straight_path(53.0), -0.001),
+                 invalid_argument);
+    EXPECT_THROW((void)hedge_short_call(kHullCall, kQuantity, straight_path(53.0), 0.2),
                  invalid_argument);
 }
 

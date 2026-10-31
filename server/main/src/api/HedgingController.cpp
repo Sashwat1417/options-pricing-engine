@@ -17,6 +17,9 @@ void HedgingController::registerRoutes(httplib::Server& server) const {
     postJson(server, "/api/v1/hedge/frequency", [this](const json& body) {
         return service_.hedgeFrequency(HedgeFrequencyRequest::fromJson(body)).toJson();
     });
+    postJson(server, "/api/v1/hedge/vol-study", [this](const json& body) {
+        return service_.hedgeVolStudy(HedgeVolStudyRequest::fromJson(body)).toJson();
+    });
 }
 
 }  // namespace ope::server
