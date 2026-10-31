@@ -124,7 +124,7 @@ curl localhost:8080/api/v1/price -H 'Content-Type: application/json' \
 | Endpoint | Body | Response |
 |---|---|---|
 | `GET /health` | | `{"status":"ok"}` |
-| `GET /version` | | `{"version": "0.3.0", "commit": "<deployed git sha>"}` |
+| `GET /version` | | `{"version": "0.4.0", "commit": "<deployed git sha>"}` |
 | `POST /api/v1/price` | `type, spot, strike, expiry, rate, vol` | `{"price": …}` |
 | `POST /api/v1/iv` | `type, spot, strike, expiry, rate, price` | `{"implied_vol": …}` |
 | `POST /api/v1/sweep` | `spot, strike, expiry, rate, vol, vary, from, to, steps` (`vol` not needed when `vary` is `vol`) | arrays `x, call, put, call_payoff, put_payoff, call_delta, put_delta, call_theta, put_theta, call_gamma, put_gamma, call_vega, put_vega, call_rho, put_rho` |
