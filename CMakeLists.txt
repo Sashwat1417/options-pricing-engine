@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 
 project(options_pricing_engine
-    VERSION 0.3.0
+    VERSION 0.4.0
     DESCRIPTION "Options pricing engine: Black-Scholes, Monte Carlo, delta hedging"
     LANGUAGES CXX
 )
@@ -27,6 +27,8 @@ if(OPE_BUILD_TESTS)
 endif()
 
 add_subdirectory(black_scholes)  # Layer 1
+add_subdirectory(monte_carlo)    # path simulation, shared by Layers 2 and 3
+add_subdirectory(hedging)        # Layer 3
 
 if(OPE_BUILD_CLI)
     include(FetchCLI11)

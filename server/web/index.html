@@ -19,6 +19,7 @@
       <button type="button" role="tab" data-view="pricing" aria-selected="true">Pricing</button>
       <button type="button" role="tab" data-view="greeks" aria-selected="false">Greeks</button>
       <button type="button" role="tab" data-view="iv" aria-selected="false">Implied vol</button>
+      <button type="button" role="tab" data-view="hedging" aria-selected="false">Hedging</button>
     </nav>
   </header>
 
@@ -115,13 +116,105 @@
         <p class="hint">Uses spot, strike, expiry and rate from the inputs; σ is what gets solved for.</p>
       </section>
     </div>
+    <!-- Hedging -->
+    <div class="results" id="view-hedging" role="tabpanel" hidden>
+      <section class="card" aria-labelledby="hedge-title">
+        <h2 id="hedge-title">Delta-hedge a sold call</h2>
+        <p class="hint">A bank sells calls and holds Δ shares, rebalancing at each step along one
+          stock path (Hull 19.4). The option is set by the inputs on the left; σ is the
+          volatility used both to simulate the stock and to compute Δ.</p>
+        <div class="hedge-params">
+          <label>Real drift μ (%) <input id="h-drift" type="number" step="any" value="13"></label>
+          <label>Options sold <input id="h-quantity" type="number" step="any" value="100000"></label>
+          <label>Rebalances <input id="h-rebalances" type="number" step="1" min="1" max="1000" value="20"></label>
+          <label>Premium per option <input id="h-premium" type="number" step="any" value="3">
+            <span id="h-fair" class="hint"></span></label>
+        </div>
+        <div class="hedge-actions">
+          <button type="button" id="h-new" class="button primary">New path</button>
+          <button type="button" id="h-hull192" class="button">Hull Table 19.2</button>
+          <button type="button" id="h-hull193" class="button">Hull Table 19.3</button>
+          <label class="seed">Seed <input id="h-seed" type="number" step="1" min="0" value="42"></label>
+        </div>
+        <p id="h-source" class="hint"></p>
+        <p id="h-error" class="error" role="alert" hidden></p>
+      </section>
+
+      <section class="stat-grid" aria-label="Hedging result">
+        <div class="card stat">
+          <span class="label">Hedge cost (today's value)</span>
+          <span id="h-cost" class="value small">–</span>
+          <span class="hint">what hedging cost the bank on this path</span>
+        </div>
+        <div class="card stat">
+          <span class="label">Black-Scholes value</span>
+          <span id="h-bs" class="value small">–</span>
+          <span class="hint">what hedging should cost on average</span>
+        </div>
+        <div class="card stat">
+          <span class="label">Premium received</span>
+          <span id="h-premium-out" class="value small">–</span>
+          <span class="hint">what the client paid</span>
+        </div>
+        <div class="card stat">
+          <span class="label">Bank P&amp;L</span>
+          <span id="h-pnl" class="value small">–</span>
+          <span id="h-outcome" class="hint">–</span>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="hedge-chart-title">
+        <h2 id="hedge-chart-title">Stock path and shares held</h2>
+        <div class="chart-box"><canvas id="hedge-chart" aria-label="Stock price and shares held"></canvas></div>
+        <p class="hint">Shares held = Δ × options sold. The bank buys as the stock rises and sells
+          as it falls, ending with every share (exercised) or none (expires worthless).</p>
+      </section>
+
+      <section class="card" aria-labelledby="hedge-table-title">
+        <h2 id="hedge-table-title">Step by step (Hull Table 19.2 layout)</h2>
+        <div class="table-wrap">
+          <table class="data-table" id="hedge-table">
+            <thead>
+              <tr>
+                <th>Week</th><th>Stock price</th><th>Delta</th><th>Shares purchased</th>
+                <th>Cost of shares ($000)</th><th>Cumulative cost incl. interest ($000)</th>
+                <th>Interest cost ($000)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="freq-title">
+        <h2 id="freq-title">Does hedging work? (Hull Table 19.1)</h2>
+        <p class="hint">One path is luck. This hedges many simulated paths at each rebalancing
+          frequency: the average cost should sit at the Black-Scholes value, and the spread should
+          shrink as rebalancing gets more frequent.</p>
+        <div class="hedge-actions">
+          <label class="seed">Paths <input id="f-paths" type="number" step="1" min="2" max="5000" value="1000"></label>
+          <button type="button" id="f-run" class="button primary">Run study</button>
+        </div>
+        <p id="f-error" class="error" role="alert" hidden></p>
+        <div class="table-wrap">
+          <table class="data-table" id="freq-table">
+            <thead>
+              <tr><th>Rebalance every</th><th>Mean hedge cost</th><th>Std dev</th><th>Std dev ÷ BS value</th></tr>
+            </thead>
+            <tbody><tr><td colspan="4" class="hint">Run the study to fill this in.</td></tr></tbody>
+          </table>
+        </div>
+        <div id="freq-chart-box" class="chart-box short" hidden><canvas id="freq-chart" aria-label="Spread of hedge cost by rebalancing frequency"></canvas></div>
+      </section>
+    </div>
   </main>
 
   <footer class="wrap foot">
-    Every number on this page comes from the C++ API: <code>/api/v1/price</code>, <code>/greeks</code>, <code>/iv</code>, <code>/sweep</code>.
+    Every number on this page comes from the C++ API: <code>/api/v1/price</code>, <code>/greeks</code>, <code>/iv</code>, <code>/sweep</code>, <code>/hedge</code>.
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
+  <script src="hedging.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

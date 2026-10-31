@@ -124,11 +124,13 @@ curl localhost:8080/api/v1/price -H 'Content-Type: application/json' \
 | Endpoint | Body | Response |
 |---|---|---|
 | `GET /health` | | `{"status":"ok"}` |
-| `GET /version` | | `{"version": "0.3.0", "commit": "<deployed git sha>"}` |
+| `GET /version` | | `{"version": "0.4.0", "commit": "<deployed git sha>"}` |
 | `POST /api/v1/price` | `type, spot, strike, expiry, rate, vol` | `{"price": …}` |
 | `POST /api/v1/iv` | `type, spot, strike, expiry, rate, price` | `{"implied_vol": …}` |
 | `POST /api/v1/sweep` | `spot, strike, expiry, rate, vol, vary, from, to, steps` (`vol` not needed when `vary` is `vol`) | arrays `x, call, put, call_payoff, put_payoff, call_delta, put_delta, call_theta, put_theta, call_gamma, put_gamma, call_vega, put_vega, call_rho, put_rho` |
 | `POST /api/v1/greeks` | `type, spot, strike, expiry, rate, vol` | `{"delta": 0.5216…, "theta": −4.3054…, "gamma": 0.0655…, "vega": 12.105…, "rho": 8.906…}` (theta per year, vega/rho per unit of σ/r) |
+| `POST /api/v1/hedge/path` | `spot, strike, expiry, rate, vol, quantity, premium` + either `drift, rebalances, seed` (simulate) or `prices` (a given path) | `steps` rows (Hull Table 19.2 layout), `hedge_cost, pv_hedge_cost, bs_value, premium_received, pnl, exercised` |
+| `POST /api/v1/hedge/frequency` | `spot, strike, expiry, rate, vol, quantity, drift, paths, seed, rebalances?` | `rows` of `rebalances, mean_pv_cost, sd_pv_cost, sd_over_bs` (Hull Table 19.1) |
 
 Bad input returns `400 {"error": "..."}`. Bodies over 64 KB get `413`. Each request is logged as one JSON line with its duration.
 
@@ -150,11 +152,19 @@ black_scholes/                Layer 1 (target: ope::black_scholes)
 ├── main/include/ope/         public headers
 ├── main/src/                 implementation
 └── test/                     GoogleTest unit tests
+monte_carlo/                  path simulation shared by Layers 2 and 3 (target: ope::monte_carlo)
+├── main/include/ope/gbm.hpp  simulate_gbm_path: exact lognormal steps, seeded RNG
+├── main/src/
+└── test/                     statistical tests + Monte Carlo price vs Black-Scholes
+hedging/                      Layer 3: delta-hedging simulator (target: ope::hedging)
+├── main/include/ope/hedging.hpp  hedge_short_call: Hull Table 19.2-style rebalance rows
+├── main/src/
+└── test/                     accounting rules, no look-ahead, mean cost = BS value
 cli/                          `ope` command-line tool
 ├── main/src/
 └── test/                     smoke tests that run the binary
 server/                       `ope-server` REST API
-├── main/src/api/             PricingController (JSON API), HealthController, WebController (UI)
+├── main/src/api/             PricingController, HedgingController, HealthController, WebController
 ├── main/src/config/          ServerConfig: env vars, payload/timeout limits
 ├── main/src/service/         PricingService: calls ope::black_scholes
 ├── main/src/request/         PriceRequest, IvRequest, SweepRequest (+ JsonReader)
