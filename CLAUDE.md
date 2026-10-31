@@ -12,25 +12,33 @@ actively applying.
    Redis dedup (SET NX PX + in-memory fallback), transactional outbox + change streams,
    price-time priority matching, integer price keys, post-seed match sweep for crash recovery,
    Gmail SMTP notification service. Documented in Confluence (HLD/LLD + Kafka Concepts doc).
-2. **Options Pricing Engine** — ACTIVE, currently starting implementation. This repo.
+2. **Options Pricing Engine** — ACTIVE. Layers 1 and 3 built, served over a REST API and web
+   UI, deployed on Render; Layer 2 next. This repo.
 
 ## Architecture (fixed)
 Three C++ layers. Python is used strictly for visualization — no business logic in Python.
 The same rule covers the web UI (`server/web/`, JS): it reads inputs, calls the C++ REST API
 (`ope-server`), and displays results; unit conversion is fine, pricing is not.
 
-- **Layer 1 — Black-Scholes analytical pricer.** Closed-form f(S,t) for vanilla European
-  calls/puts. *Currently being implemented.*
+- **Layer 1 — Black-Scholes analytical pricer** (`black_scholes/`). *Done.* Closed-form price
+  for vanilla European calls/puts, implied vol (bisection), all five Greeks (Δ Θ Γ ν ρ),
+  sweeps. Tested against Hull Ch 15 and Ch 19 examples and the BS PDE identity.
 - **Layer 2 — Monte Carlo simulation engine.** For exotic/path-dependent options with no
-  closed form. Blocked on Hull Ch 21 (Monte Carlo sections).
-- **Layer 3 — Delta hedging simulator.** Simulates a market maker's hedge and resulting P&L.
-  Blocked on Hull Ch 19 (Greeks).
+  closed form. *Not started*; the shared GBM path simulator (`monte_carlo/`) already exists.
+- **Layer 3 — Delta hedging simulator** (`hedging/`). *Done.* Hedges a sold call along a path;
+  reproduces Hull Tables 19.1–19.3; realised vs implied vol (volatility trading); transaction
+  costs (Hull 19.10).
 
 ## Where things stand
-- Hull's *Options, Futures, and Other Derivatives* (11th Global Ed.): Chapters 1, 10–15 done.
-  Ch 19 and the Monte Carlo part of Ch 21 remain, being read in parallel with Layer 1 build —
-  not a gate on Layer 1 anymore.
-- Layer 1 scope: implement closed-form Black-Scholes pricing for vanilla calls/puts.
+- Hull's *Options, Futures, and Other Derivatives* (11th Global Ed.): Chapters 1, 10–15 and
+  19 done, plus 21.6 (Monte Carlo simulation).
+- Next: Layer 2 (Monte Carlo pricing of exotics). Read Hull 21.7 (variance reduction) and the
+  Asian, barrier and lookback sections of Ch 26 first.
+- Built around the layers: `cli/` (`ope` tool), `server/` (`ope-server` REST API + web UI with
+  Pricing, Greeks, Implied vol and Hedging tabs), `viz/` (Python charts), Docker, Kubernetes
+  manifest, GitHub Actions CI, Render deployment (usually kept suspended; test locally).
+- Git flow: `feature/*` → `develop` (squash PR) → `main` (release PR, merge commit, version tag
+  in `CMakeLists.txt`). Never delete `develop`.
 - Working principle: when implementation hits a conceptual wall (e.g. "why N(d1) here and
   not N(d2)"), that's a targeted signal to go re-read that specific bit of Hull — not a reason
   to pause and reread the whole book.
@@ -40,6 +48,10 @@ The same rule covers the web UI (`server/web/`, JS): it reads inputs, calls the 
 - From a quant firm's perspective, the real intellectual problem is inverting market prices to
   extract implied volatility and aggregating Greeks across a portfolio in real time — not just
   computing a price given σ. Keep this in mind as Layer 1 evolves.
+- Delta hedging: the average hedging cost is the BS value whatever μ is; its spread falls as
+  1/√(rebalances). Hedging at implied vol while the stock moves at realised vol makes the P&L
+  depend on realised vs implied vol, not direction. Trading costs scale with the shares traded
+  (many times the option's value), so they create an optimal rebalancing frequency.
 - Black-Scholes prices in a risk-neutral world where μ (real expected return) vanishes
   entirely. f(S,t) solves the BS PDE with a terminal payoff condition — swap that condition to
   generalize to other derivatives.
@@ -59,3 +71,5 @@ The same rule covers the web UI (`server/web/`, JS): it reads inputs, calls the 
 - Confluence (Atlassian Rovo, site sashwatpratapsinghcoc.atlassian.net): Space ID 131074,
   Cloud ID 87de896b-114b-45e8-b55d-40f59f3c015e.
   Order Book parent page 327681, Order Book HLD/LLD page 393217.
+  Options Pricing Engine parent page 425985, Layer 1 HLD/LLD page 327701.
+- Notes: `docs/notes/` (e.g. trading costs, latency and why C++).

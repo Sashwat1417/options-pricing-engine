@@ -4,7 +4,7 @@
 
 Multi-layer C++ options pricing engine: closed-form Black-Scholes, Monte Carlo simulation, and delta-hedging P&amp;L, with Python visualisation.
 
-**Live demo: https://ope-server.onrender.com** (free tier: the first request after 15 idle minutes takes about a minute)
+**Live demo: https://ope-server.onrender.com** (free tier: it may be suspended, and the first request after 15 idle minutes takes about a minute)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/price_vs_spot-dark.png">
@@ -20,6 +20,23 @@ Multi-layer C++ options pricing engine: closed-form Black-Scholes, Monte Carlo s
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/price_vs_vol-dark.png">
   <img alt="Call and put price rising with volatility" src="docs/images/price_vs_vol.png">
 </picture>
+
+## What's built
+
+| Layer | Module | What it does | Checked against |
+|---|---|---|---|
+| **1 · Black-Scholes** | `black_scholes/` | Price European calls and puts; implied vol by bisection; Greeks Δ Θ Γ ν ρ; sweeps | Hull Ch 15 & 19 examples; put-call parity; finite differences; the BS PDE Θ + rSΔ + ½σ²S²Γ = rV |
+| **2 · Monte Carlo** | `monte_carlo/` | GBM path simulator (exact lognormal steps, seeded). Exotic pricing: *next* | Monte Carlo call price = Black-Scholes |
+| **3 · Delta hedging** | `hedging/` | Hedge a sold call along a path; cost and P&L; many-path statistics; realised ≠ implied vol; transaction costs | Hull Tables 19.2 / 19.3 row by row; Table 19.1 pattern |
+
+Around them:
+- **`cli/`**: the `ope` command-line tool;
+- **`server/`**: `ope-server`, a REST API plus a web UI with **Pricing**, **Greeks**, **Implied vol** and **Hedging** tabs;
+- **`viz/`**: Python charts.
+
+Packaging and delivery: Docker, a Kubernetes manifest, GitHub Actions CI on Linux and macOS, and Render.
+
+Notes: [trading costs, latency and why C++](docs/notes/trading-costs-and-latency.md).
 
 ## Build and test
 
