@@ -1,13 +1,20 @@
 #include "ope/hedging.hpp"
 
+#include "ope/black_scholes.hpp"
+#include "ope/gbm.hpp"
 #include "ope/greeks.hpp"
 
 #include <cmath>
+#include <cstdint>
+#include <random>
 #include <stdexcept>
 
 using std::exp;
 using std::invalid_argument;
 using std::isfinite;
+using std::mt19937_64;
+using std::sqrt;
+using std::uint64_t;
 using std::vector;
 
 namespace ope {
@@ -75,6 +82,38 @@ HedgeResult hedge_short_call(const OptionInputs& option, double quantity,
         result.steps.back().cumulative_cost - (exercised ? option.strike * quantity : 0.0);
     result.pv_hedge_cost = result.hedge_cost * exp(-option.rate * option.time_to_expiry);
     return result;
+}
+
+HedgeResult hedge_simulated_path(const OptionInputs& option, double quantity, double drift,
+                                 int rebalances, uint64_t seed) {
+    validate(option);
+    mt19937_64 rng(seed);
+    const GbmParams params{option.spot, drift, option.volatility, option.time_to_expiry,
+                           rebalances};
+    return hedge_short_call(option, quantity, simulate_gbm_path(params, rng));
+}
+
+HedgeCostStats hedge_cost_stats(const OptionInputs& option, double quantity, double drift,
+                                int rebalances, int paths, uint64_t seed) {
+    validate(option);
+    if (paths < 2) {
+        throw invalid_argument("hedge_cost_stats needs paths >= 2");
+    }
+    mt19937_64 rng(seed);
+    const GbmParams params{option.spot, drift, option.volatility, option.time_to_expiry,
+                           rebalances};
+
+    // Welford's running mean and variance: one pass, no stored costs.
+    double mean = 0.0;
+    double squares = 0.0;
+    for (int i = 1; i <= paths; ++i) {
+        const double cost =
+            hedge_short_call(option, quantity, simulate_gbm_path(params, rng)).pv_hedge_cost;
+        const double change = cost - mean;
+        mean += change / i;
+        squares += change * (cost - mean);
+    }
+    return {mean, sqrt(squares / (paths - 1)), price(option) * quantity};
 }
 
 }  // namespace ope

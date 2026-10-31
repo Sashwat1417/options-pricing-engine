@@ -1,8 +1,10 @@
 #include "api/HealthController.hpp"
+#include "api/HedgingController.hpp"
 #include "api/PricingController.hpp"
 #include "api/WebController.hpp"
 #include "config/ServerConfig.hpp"
 #include "ope/version.hpp"
+#include "service/HedgingService.hpp"
 #include "service/PricingService.hpp"
 
 #include <httplib.h>
@@ -20,6 +22,8 @@
 using nlohmann::json;
 using ope::server::applyServerLimits;
 using ope::server::HealthController;
+using ope::server::HedgingController;
+using ope::server::HedgingService;
 using ope::server::PricingController;
 using ope::server::PricingService;
 using ope::server::ServerConfig;
@@ -65,6 +69,8 @@ int main() {
 
     const PricingService service{};
     const PricingController pricing(service);
+    const HedgingService hedgingService{};
+    const HedgingController hedging(hedgingService);
     const HealthController health(config.commit);
     const WebController web(config.webDir);
 
@@ -72,6 +78,7 @@ int main() {
     applyServerLimits(server);
     health.registerRoutes(server);
     pricing.registerRoutes(server);
+    hedging.registerRoutes(server);
     try {
         web.registerRoutes(server);
     } catch (const exception& e) {

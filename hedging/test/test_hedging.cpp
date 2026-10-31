@@ -198,6 +198,48 @@ TEST(Hedging, ReproducesHullTable192InTheMoney) { expect_matches_hull(kTable192)
 
 TEST(Hedging, ReproducesHullTable193OutOfTheMoney) { expect_matches_hull(kTable193); }
 
+TEST(HedgeSimulatedPath, SameSeedGivesSamePath) {
+    const auto a = ope::hedge_simulated_path(kHullCall, kQuantity, kRealWorldDrift, 20, 42);
+    const auto b = ope::hedge_simulated_path(kHullCall, kQuantity, kRealWorldDrift, 20, 42);
+    const auto c = ope::hedge_simulated_path(kHullCall, kQuantity, kRealWorldDrift, 20, 43);
+    ASSERT_EQ(a.steps.size(), 21u);
+    EXPECT_DOUBLE_EQ(a.steps.front().spot, kHullCall.spot);
+    EXPECT_DOUBLE_EQ(a.pv_hedge_cost, b.pv_hedge_cost);
+    EXPECT_NE(a.pv_hedge_cost, c.pv_hedge_cost);
+}
+
+TEST(HedgeSimulatedPath, MatchesHedgingTheSimulatedPath) {
+    const auto result = ope::hedge_simulated_path(kHullCall, kQuantity, kRealWorldDrift, 20, 42);
+    vector<double> path;
+    for (const auto& step : result.steps) path.push_back(step.spot);
+    EXPECT_DOUBLE_EQ(hedge_short_call(kHullCall, kQuantity, path).pv_hedge_cost,
+                     result.pv_hedge_cost);
+}
+
+TEST(HedgeCostStats, MeanIsBlackScholesValueAndSpreadShrinks) {
+    const auto weekly = ope::hedge_cost_stats(kHullCall, kQuantity, kRealWorldDrift, 20, 2000, 7);
+    const auto daily = ope::hedge_cost_stats(kHullCall, kQuantity, kRealWorldDrift, 80, 2000, 7);
+    EXPECT_NEAR(weekly.bs_value, ope::price(kHullCall) * kQuantity, 1e-6);
+    EXPECT_NEAR(weekly.mean_pv_cost, weekly.bs_value, 4.0 * weekly.sd_pv_cost / sqrt(2000.0));
+    EXPECT_LT(daily.sd_pv_cost, weekly.sd_pv_cost);
+}
+
+TEST(HedgeCostStats, SameSeedGivesSameStats) {
+    const auto a = ope::hedge_cost_stats(kHullCall, kQuantity, kRealWorldDrift, 20, 200, 9);
+    const auto b = ope::hedge_cost_stats(kHullCall, kQuantity, kRealWorldDrift, 20, 200, 9);
+    EXPECT_DOUBLE_EQ(a.mean_pv_cost, b.mean_pv_cost);
+    EXPECT_DOUBLE_EQ(a.sd_pv_cost, b.sd_pv_cost);
+}
+
+TEST(HedgeCostStats, RejectsTooFewPathsOrSteps) {
+    EXPECT_THROW((void)ope::hedge_cost_stats(kHullCall, kQuantity, 0.1, 20, 1, 1),
+                 invalid_argument);
+    EXPECT_THROW((void)ope::hedge_cost_stats(kHullCall, kQuantity, 0.1, 0, 100, 1),
+                 invalid_argument);
+    EXPECT_THROW((void)ope::hedge_simulated_path(kHullCall, kQuantity, 0.1, 0, 1),
+                 invalid_argument);
+}
+
 TEST(Hedging, RejectsInvalidInputs) {
     const auto path = straight_path(53.0);
     OptionInputs put = kHullCall;

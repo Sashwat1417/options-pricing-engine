@@ -4,15 +4,23 @@
 
 add_library(ope_server_core
     main/src/api/HealthController.cpp
+    main/src/api/HedgingController.cpp
+    main/src/api/JsonRoute.cpp
     main/src/api/PricingController.cpp
     main/src/api/WebController.cpp
     main/src/config/ServerConfig.cpp
     main/src/request/GreeksRequest.cpp
+    main/src/request/HedgeFrequencyRequest.cpp
+    main/src/request/HedgePathRequest.cpp
+    main/src/request/HedgeRequestFields.cpp
     main/src/request/IvRequest.cpp
     main/src/request/JsonReader.cpp
     main/src/request/PriceRequest.cpp
     main/src/request/SweepRequest.cpp
+    main/src/response/HedgeFrequencyResponse.cpp
+    main/src/response/HedgePathResponse.cpp
     main/src/response/SweepResponse.cpp
+    main/src/service/HedgingService.cpp
     main/src/service/PricingService.cpp
 )
 
@@ -21,6 +29,7 @@ target_include_directories(ope_server_core PUBLIC main/src)
 target_link_libraries(ope_server_core
     PUBLIC
         ope::black_scholes
+        ope::hedging
         httplib::httplib
         nlohmann_json::nlohmann_json
 )
@@ -44,10 +53,13 @@ ope_enable_sanitizers(ope_server)
 if(OPE_BUILD_TESTS)
     add_executable(server_tests
         test/api/HealthControllerTest.cpp
+        test/api/HedgingControllerTest.cpp
         test/api/PricingControllerTest.cpp
         test/api/WebControllerTest.cpp
         test/config/ServerConfigTest.cpp
+        test/request/HedgeRequestParsingTest.cpp
         test/request/RequestParsingTest.cpp
+        test/service/HedgingServiceTest.cpp
         test/service/PricingServiceTest.cpp
     )
 

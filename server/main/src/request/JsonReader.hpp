@@ -11,6 +11,8 @@ namespace ope::server::json_reader {
 
 const nlohmann::json& field(const nlohmann::json& body, const char* name);
 double number(const nlohmann::json& body, const char* name);
+// An integer in [lo, hi].
+long long integer(const nlohmann::json& body, const char* name, long long lo, long long hi);
 std::string text(const nlohmann::json& body, const char* name);
 OptionType optionType(const nlohmann::json& body);
 
