@@ -150,6 +150,10 @@ black_scholes/                Layer 1 (target: ope::black_scholes)
 ├── main/include/ope/         public headers
 ├── main/src/                 implementation
 └── test/                     GoogleTest unit tests
+monte_carlo/                  path simulation shared by Layers 2 and 3 (target: ope::monte_carlo)
+├── main/include/ope/gbm.hpp  simulate_gbm_path: exact lognormal steps, seeded RNG
+├── main/src/
+└── test/                     statistical tests + Monte Carlo price vs Black-Scholes
 cli/                          `ope` command-line tool
 ├── main/src/
 └── test/                     smoke tests that run the binary
