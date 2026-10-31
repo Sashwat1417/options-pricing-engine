@@ -129,10 +129,11 @@ curl localhost:8080/api/v1/price -H 'Content-Type: application/json' \
 | `POST /api/v1/iv` | `type, spot, strike, expiry, rate, price` | `{"implied_vol": …}` |
 | `POST /api/v1/sweep` | `spot, strike, expiry, rate, vol, vary, from, to, steps` (`vol` not needed when `vary` is `vol`) | arrays `x, call, put, call_payoff, put_payoff, call_delta, put_delta, call_theta, put_theta, call_gamma, put_gamma, call_vega, put_vega, call_rho, put_rho` |
 | `POST /api/v1/greeks` | `type, spot, strike, expiry, rate, vol` | `{"delta": 0.5216…, "theta": −4.3054…, "gamma": 0.0655…, "vega": 12.105…, "rho": 8.906…}` (theta per year, vega/rho per unit of σ/r) |
-| `POST /api/v1/hedge/path` | `spot, strike, expiry, rate, vol, quantity, premium` + either `drift, rebalances, seed` (simulate) or `prices` (a given path) | `steps` rows (Hull Table 19.2 layout), `hedge_cost, pv_hedge_cost, bs_value, premium_received, pnl, exercised` |
-| `POST /api/v1/hedge/frequency` | `spot, strike, expiry, rate, vol, quantity, drift, paths, seed, rebalances?` | `rows` of `rebalances, mean_pv_cost, sd_pv_cost, sd_over_bs` (Hull Table 19.1) |
+| `POST /api/v1/hedge/path` | `spot, strike, expiry, rate, vol, quantity, premium` + either `drift, real_vol?, rebalances, seed` (simulate) or `prices` (a given path) | `steps` rows (Hull Table 19.2 layout), `hedge_cost, pv_hedge_cost, bs_value, premium_received, pnl, exercised` |
+| `POST /api/v1/hedge/frequency` | `spot, strike, expiry, rate, vol, quantity, drift, real_vol?, paths, seed, rebalances?` | `rows` of `rebalances, mean_pv_cost, sd_pv_cost, sd_over_bs` (Hull Table 19.1) |
+| `POST /api/v1/hedge/vol-study` | `spot, strike, expiry, rate, vol, quantity, premium, drift, rebalances, paths, seed, real_vols?` | `rows` of `real_vol, mean_pv_cost, sd_pv_cost, mean_pnl`, plus `premium_implied_vol` (the break-even realised vol) |
 
-Bad input returns `400 {"error": "..."}`. Bodies over 64 KB get `413`. Each request is logged as one JSON line with its duration.
+Bad input returns `400 {"error": "..."}`. `vol` is the implied vol the option is priced and hedged at; `real_vol` (default: `vol`) is how the simulated stock actually moves. Bodies over 64 KB get `413`. Each request is logged as one JSON line with its duration.
 
 ## Charts
 

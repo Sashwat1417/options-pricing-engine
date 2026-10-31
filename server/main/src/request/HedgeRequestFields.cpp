@@ -27,12 +27,19 @@ double quantity(const json& body) {
     return q;
 }
 
-double drift(const json& body) {
+RealWorld realWorld(const json& body, double impliedVol) {
     const double mu = json_reader::number(body, "drift");
     if (fabs(mu) > 5.0) {
         throw invalid_argument("drift must be in [-5, 5]");
     }
-    return mu;
+    double vol = impliedVol;
+    if (body.contains("real_vol")) {
+        vol = json_reader::number(body, "real_vol");
+        if (vol < 0.0 || vol > 5.0) {
+            throw invalid_argument("real_vol must be in [0, 5]");
+        }
+    }
+    return {mu, vol};
 }
 
 uint64_t seed(const json& body) {
