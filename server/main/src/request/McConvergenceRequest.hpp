@@ -12,7 +12,7 @@ namespace ope::server {
 // POST /api/v1/mc/convergence  {type, spot, strike, expiry, rate, vol, seed, paths?: [..]}
 // Prices the option once per path count, all from the same seed.
 struct McConvergenceRequest {
-    static constexpr long long kMaxWork = 4000000;  // Σ paths
+    static constexpr long long kMaxWork = 2000000;  // Σ paths, run once per method
 
     OptionInputs option;
     std::uint64_t seed;

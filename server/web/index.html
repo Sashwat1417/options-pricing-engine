@@ -246,8 +246,8 @@
         <p class="hint">Simulates the stock's price at expiry many times in the risk-neutral world
           (it grows at the risk-free rate r, not its real expected return), averages the
           discounted payoff and reports the standard error (Hull 21.6). A vanilla option also has
-          a Black-Scholes price, so this checks the engine before it prices options with no
-          formula.</p>
+          a Black-Scholes price, so this checks the engine, and its variance reduction, before
+          it prices options with no formula.</p>
         <div class="hedge-params">
           <label>Type
             <select id="mc-type">
@@ -264,34 +264,53 @@
         <p id="mc-error" class="error" role="alert" hidden></p>
       </section>
 
-      <section class="stat-grid three" aria-label="Monte Carlo result">
+      <section class="stat-grid" aria-label="Monte Carlo result">
         <div class="card stat">
-          <span class="label">Monte Carlo price</span>
-          <span id="mc-price" class="value small">–</span>
-          <span id="mc-se" class="hint"></span>
-        </div>
-        <div class="card stat">
-          <span class="label">Black-Scholes price</span>
+          <span class="label">Black-Scholes</span>
           <span id="mc-bs" class="value small">–</span>
-          <span class="hint">exact formula (Layer 1)</span>
+          <span class="hint">exact formula (Layer 1): the target</span>
         </div>
         <div class="card stat">
-          <span class="label">MC − Black-Scholes</span>
-          <span id="mc-diff" class="value small">–</span>
-          <span id="mc-verdict" class="hint"></span>
+          <span class="label">Plain</span>
+          <span id="mc-plain" class="value small">–</span>
+          <span id="mc-plain-se" class="hint"></span>
+          <span id="mc-plain-speedup" class="hint"></span>
         </div>
+        <div class="card stat">
+          <span class="label">Antithetic</span>
+          <span id="mc-antithetic" class="value small">–</span>
+          <span id="mc-antithetic-se" class="hint"></span>
+          <span id="mc-antithetic-speedup" class="hint"></span>
+        </div>
+        <div class="card stat">
+          <span class="label">Control variate</span>
+          <span id="mc-control_variate" class="value small">–</span>
+          <span id="mc-control_variate-se" class="hint"></span>
+          <span id="mc-control_variate-speedup" class="hint"></span>
+        </div>
+      </section>
+      <section class="card" aria-labelledby="mc-vr-title">
+        <h2 id="mc-vr-title">Variance reduction (Hull 21.7)</h2>
+        <p class="hint">Same number of simulated prices for every method; only the error changes.
+          <strong>Antithetic</strong> pairs each draw ε with −ε, so a high price and its mirror
+          low price cancel much of each other's noise. <strong>Control variate</strong> also
+          tracks the discounted stock price, whose exact average is today's spot S, and removes
+          the part of the payoff's noise that the stock price explains, like holding a static
+          hedge of β shares. The speedup is how many plain paths one path of the method is worth.
+          Both help most for in-the-money options and least far out of the money, where most
+          paths pay nothing.</p>
       </section>
 
       <section class="card" aria-labelledby="mc-conv-title">
         <h2 id="mc-conv-title">Convergence: more paths, narrower interval</h2>
-        <p class="hint">The same option priced with more and more paths. The shaded band is the
-          95% interval; it narrows as 1/√N, so each extra decimal place of accuracy costs 100×
-          the paths. That cost is why variance reduction (Hull 21.7) comes next.</p>
+        <p class="hint">The same option priced with more and more paths. Each shaded band is a
+          95% interval; every band narrows as 1/√N, but the variance-reduction bands start
+          narrower. Click a method in the legend to hide it.</p>
         <div class="chart-box"><canvas id="mc-chart" aria-label="Monte Carlo estimate and 95% interval by number of paths"></canvas></div>
         <div class="table-wrap">
           <table class="data-table" id="mc-table">
             <thead>
-              <tr><th>Paths</th><th>MC price</th><th>Std error</th><th>95% interval</th><th>MC − Black-Scholes</th></tr>
+              <tr><th>Paths</th><th>Plain</th><th>Antithetic</th><th>Control variate</th><th>Speedup (anti / CV)</th></tr>
             </thead>
             <tbody></tbody>
           </table>

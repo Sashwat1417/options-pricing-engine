@@ -21,16 +21,37 @@ const MonteCarloService service{};
 
 }  // namespace
 
-TEST(MonteCarloService, PriceSitsNearBlackScholesWithA95PercentInterval) {
+TEST(MonteCarloService, EveryMethodSitsNearBlackScholesWithA95PercentInterval) {
     const json out = service.price({kHullCall, 100000, 42}).toJson();
-    const double price = out.at("price").get<double>();
-    const double se = out.at("std_error").get<double>();
     EXPECT_NEAR(out.at("bs_price").get<double>(), 4.7594, 1e-4);
-    EXPECT_NEAR(price, out.at("bs_price").get<double>(), 4.0 * se);
-    EXPECT_NEAR(out.at("ci_low").get<double>(), price - 1.96 * se, 1e-12);
-    EXPECT_NEAR(out.at("ci_high").get<double>(), price + 1.96 * se, 1e-12);
     EXPECT_EQ(out.at("paths").get<int>(), 100000);
     EXPECT_EQ(out.at("seed").get<int>(), 42);
+    for (const char* method : {"plain", "antithetic", "control_variate"}) {
+        const json& e = out.at("estimates").at(method);
+        const double price = e.at("price").get<double>();
+        const double se = e.at("std_error").get<double>();
+        EXPECT_NEAR(price, out.at("bs_price").get<double>(), 4.0 * se) << method;
+        EXPECT_NEAR(e.at("ci_low").get<double>(), price - 1.96 * se, 1e-12) << method;
+        EXPECT_NEAR(e.at("ci_high").get<double>(), price + 1.96 * se, 1e-12) << method;
+    }
+}
+
+TEST(MonteCarloService, SpeedupIsTheSquaredRatioOfStandardErrors) {
+    const json e = service.price({kHullCall, 100000, 3}).toJson().at("estimates");
+    EXPECT_DOUBLE_EQ(e.at("plain").at("speedup").get<double>(), 1.0);
+    const double plain = e.at("plain").at("std_error").get<double>();
+    const double cv = e.at("control_variate").at("std_error").get<double>();
+    EXPECT_DOUBLE_EQ(e.at("control_variate").at("speedup").get<double>(),
+                     (plain / cv) * (plain / cv));
+    EXPECT_GT(e.at("antithetic").at("speedup").get<double>(), 2.5);
+    EXPECT_GT(e.at("control_variate").at("speedup").get<double>(), 8.0);
+}
+
+TEST(MonteCarloService, SpeedupIsNullWhenThereIsNoError) {
+    OptionInputs certain = kHullCall;
+    certain.volatility = 0.0;
+    const json e = service.price({certain, 100, 1}).toJson().at("estimates");
+    EXPECT_TRUE(e.at("control_variate").at("speedup").is_null());
 }
 
 TEST(MonteCarloService, ConvergenceRowsNarrowAsPathsGrow) {
@@ -39,11 +60,17 @@ TEST(MonteCarloService, ConvergenceRowsNarrowAsPathsGrow) {
     const json& rows = out.at("rows");
     ASSERT_EQ(rows.size(), 3u);
     EXPECT_EQ(rows[2].at("paths").get<int>(), 100000);
-    EXPECT_GT(rows[0].at("std_error").get<double>(), rows[1].at("std_error").get<double>());
-    EXPECT_GT(rows[1].at("std_error").get<double>(), rows[2].at("std_error").get<double>());
-    for (const json& r : rows) {
-        EXPECT_NEAR(r.at("price").get<double>(), out.at("bs_price").get<double>(),
-                    4.0 * r.at("std_error").get<double>());
+    const auto se = [&](size_t i, const char* method) {
+        return rows[i].at("estimates").at(method).at("std_error").get<double>();
+    };
+    for (const char* method : {"plain", "antithetic", "control_variate"}) {
+        EXPECT_GT(se(0, method), se(1, method)) << method;
+        EXPECT_GT(se(1, method), se(2, method)) << method;
+        for (size_t i = 0; i < rows.size(); ++i) {
+            EXPECT_NEAR(rows[i].at("estimates").at(method).at("price").get<double>(),
+                        out.at("bs_price").get<double>(), 4.0 * se(i, method))
+                << method << " row " << i;
+        }
     }
 }
 

@@ -12,9 +12,19 @@ namespace ope::server {
 // 95% confidence interval: price ± 1.96 standard errors.
 inline constexpr double kZ95 = 1.96;
 
-// {"price", "std_error", "ci_low", "ci_high", "bs_price", "paths", "seed"}
+// One estimate per method, all from the same paths and seed.
+struct McEstimates {
+    McResult plain;
+    McResult antithetic;
+    McResult controlVariate;
+};
+
+// {"bs_price", "paths", "seed",
+//  "estimates": {"plain" | "antithetic" | "control_variate":
+//                {price, std_error, ci_low, ci_high, speedup}}}
+// speedup = (plain SE / method SE)²: how many plain paths one path of the method is worth.
 struct McPriceResponse {
-    McResult result;
+    McEstimates estimates;
     double bsPrice;
     int paths;
     std::uint64_t seed;
@@ -22,11 +32,11 @@ struct McPriceResponse {
     nlohmann::json toJson() const;
 };
 
-// {"bs_price", "seed", "rows": [{paths, price, std_error, ci_low, ci_high}]}
+// {"bs_price", "seed", "rows": [{paths, estimates: {...}}]}
 struct McConvergenceResponse {
     struct Row {
         int paths;
-        McResult result;
+        McEstimates estimates;
     };
 
     double bsPrice;

@@ -62,7 +62,7 @@ TEST(McPriceRequest, RejectsMissingAndOutOfRangeFields) {
     EXPECT_EQ(priceError(body), "missing field: vol");
 
     for (const auto& [name, value] : vector<pair<string, json>>{
-             {"paths", 1}, {"paths", McPriceRequest::kMaxPaths + 1}, {"paths", 1.5},
+             {"paths", 3}, {"paths", McPriceRequest::kMaxPaths + 1}, {"paths", 1.5},
              {"seed", -1}, {"type", "straddle"}}) {
         body = hullPrice();
         body[name] = value;
@@ -84,14 +84,12 @@ TEST(McConvergenceRequest, ValidatesPathListAndCapsTotalWork) {
     body["paths"] = {100, 1000};
     EXPECT_EQ(McConvergenceRequest::fromJson(body).paths, (vector<int>{100, 1000}));
 
-    for (const json& bad : {json(1000), json::array(), json({1, 100}), json({100, "x"})}) {
+    for (const json& bad : {json(1000), json::array(), json({3, 100}), json({100, "x"})}) {
         body["paths"] = bad;
         EXPECT_NE(convergenceError(body), "") << bad;
     }
-    body["paths"] = {2000000, 2000000, 1};
-    EXPECT_NE(convergenceError(body), "");
-    body["paths"] = {2000000, 2000000};
+    body["paths"] = {1000000, 1000000};
     EXPECT_EQ(convergenceError(body), "");
-    body["paths"] = {2000000, 2000000, 2};
+    body["paths"] = {1000000, 1000000, 4};
     EXPECT_NE(convergenceError(body).find("total paths"), string::npos);
 }

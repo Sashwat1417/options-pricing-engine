@@ -167,8 +167,6 @@ code { font: 12px var(--f-mono); background: var(--field); padding: 1px 5px; bor
 
 .stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 @media (max-width: 900px) { .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.stat-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-@media (max-width: 900px) { .stat-grid.three { grid-template-columns: minmax(0, 1fr); } }
 .value.gain, td.gain { color: var(--gain); }
 .value.loss, td.loss { color: var(--error); }
 

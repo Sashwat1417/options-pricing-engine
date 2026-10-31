@@ -108,3 +108,107 @@ TEST(McPricer, RejectsInvalidInputs) {
     nan_vol.volatility = numeric_limits<double>::quiet_NaN();
     EXPECT_THROW((void)mc_price(nan_vol, 1000, 1), invalid_argument);
 }
+
+namespace {
+
+using ope::VarianceReduction;
+
+constexpr VarianceReduction kMethods[] = {VarianceReduction::None, VarianceReduction::Antithetic,
+                                          VarianceReduction::ControlVariate};
+
+const char* name(VarianceReduction m) {
+    switch (m) {
+        case VarianceReduction::None:
+            return "plain";
+        case VarianceReduction::Antithetic:
+            return "antithetic";
+        case VarianceReduction::ControlVariate:
+            return "control variate";
+    }
+    return "?";
+}
+
+// How many plain paths one path of `method` is worth: (SE plain / SE method)².
+double speedup(const OptionInputs& option, VarianceReduction method, uint64_t seed) {
+    const double plain = mc_price(option, 100000, seed).std_error;
+    const double reduced = mc_price(option, 100000, seed, method).std_error;
+    return (plain / reduced) * (plain / reduced);
+}
+
+}  // namespace
+
+TEST(McVarianceReduction, EveryMethodMatchesBlackScholesAcrossStrikes) {
+    uint64_t seed = 200;
+    for (auto method : kMethods) {
+        for (double strike : {30.0, 36.0, 40.0, 44.0, 50.0, 60.0}) {
+            for (auto type : {OptionType::Call, OptionType::Put}) {
+                const auto option = hull(type, strike);
+                const McResult mc = mc_price(option, 100000, seed++, method);
+                EXPECT_NEAR(mc.price, ope::price(option), 4.0 * mc.std_error + 1e-12)
+                    << name(method) << " K=" << strike
+                    << (type == OptionType::Call ? " call" : " put");
+            }
+        }
+    }
+}
+
+TEST(McVarianceReduction, AntitheticCutsTheErrorForInTheMoneyOptions) {
+    EXPECT_GT(speedup(hull(OptionType::Call, 40.0), VarianceReduction::Antithetic, 11), 2.5);
+    EXPECT_GT(speedup(hull(OptionType::Put, 50.0), VarianceReduction::Antithetic, 12), 8.0);
+}
+
+TEST(McVarianceReduction, ControlVariateCutsTheErrorForInTheMoneyOptions) {
+    EXPECT_GT(speedup(hull(OptionType::Call, 40.0), VarianceReduction::ControlVariate, 13), 8.0);
+    EXPECT_GT(speedup(hull(OptionType::Put, 50.0), VarianceReduction::ControlVariate, 14), 5.0);
+}
+
+// Calls and puts move one way with ε, so neither method should ever do clearly worse.
+// Deep out-of-the-money strikes are left out: few paths pay, so the SE estimates are noisy.
+TEST(McVarianceReduction, NeverClearlyWorseThanPlain) {
+    uint64_t seed = 300;
+    for (auto method : {VarianceReduction::Antithetic, VarianceReduction::ControlVariate}) {
+        for (double strike : {36.0, 40.0, 44.0, 50.0}) {
+            for (auto type : {OptionType::Call, OptionType::Put}) {
+                EXPECT_GT(speedup(hull(type, strike), method, seed++), 0.85)
+                    << name(method) << " K=" << strike;
+            }
+        }
+    }
+}
+
+// A deep in-the-money call pays S_T − K on every path: a straight line in the control
+// e^(−rT)·S_T, so the control variate removes all the noise.
+TEST(McVarianceReduction, ControlVariateIsExactWhenThePayoffIsLinearInTheControl) {
+    const auto call = hull(OptionType::Call, 10.0);
+    const McResult mc = mc_price(call, 1000, 15, VarianceReduction::ControlVariate);
+    EXPECT_NEAR(mc.price, ope::price(call), 1e-9);
+    EXPECT_NEAR(mc.std_error, 0.0, 1e-6);
+}
+
+TEST(McVarianceReduction, SameSeedGivesSameResult) {
+    for (auto method : kMethods) {
+        const auto call = hull(OptionType::Call);
+        const McResult a = mc_price(call, 5000, 42, method);
+        const McResult b = mc_price(call, 5000, 42, method);
+        EXPECT_EQ(a.price, b.price) << name(method);
+        EXPECT_EQ(a.std_error, b.std_error) << name(method);
+    }
+}
+
+TEST(McVarianceReduction, ZeroVolatilityIsExactForEveryMethod) {
+    auto call = hull(OptionType::Call);
+    call.volatility = 0.0;
+    for (auto method : kMethods) {
+        const McResult mc = mc_price(call, 100, 7, method);
+        EXPECT_NEAR(mc.price, 42.0 - 40.0 * exp(-0.10 * 0.5), 1e-12) << name(method);
+        EXPECT_NEAR(mc.std_error, 0.0, 1e-12) << name(method);
+    }
+}
+
+TEST(McVarianceReduction, NeedsAtLeastFourPaths) {
+    const auto call = hull(OptionType::Call);
+    for (auto method : {VarianceReduction::Antithetic, VarianceReduction::ControlVariate}) {
+        EXPECT_THROW((void)mc_price(call, 3, 1, method), invalid_argument) << name(method);
+        EXPECT_NO_THROW((void)mc_price(call, 4, 1, method)) << name(method);
+    }
+}

@@ -24,9 +24,9 @@ vector<int> parsePaths(const json& body) {
     }
     vector<int> counts;
     for (const json& n : *it) {
-        if (!n.is_number_integer() || n.get<long long>() < 2 ||
+        if (!n.is_number_integer() || n.get<long long>() < 4 ||
             n.get<long long>() > McPriceRequest::kMaxPaths) {
-            throw invalid_argument("paths must contain integers in [2, " +
+            throw invalid_argument("paths must contain integers in [4, " +
                                    to_string(McPriceRequest::kMaxPaths) + "]");
         }
         counts.push_back(n.get<int>());
