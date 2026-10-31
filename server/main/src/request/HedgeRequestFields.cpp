@@ -42,6 +42,17 @@ RealWorld realWorld(const json& body, double impliedVol) {
     return {mu, vol};
 }
 
+double costRate(const json& body) {
+    if (!body.contains("cost_rate")) {
+        return 0.0;
+    }
+    const double rate = json_reader::number(body, "cost_rate");
+    if (rate < 0.0 || rate > 0.1) {
+        throw invalid_argument("cost_rate must be in [0, 0.1]");
+    }
+    return rate;
+}
+
 uint64_t seed(const json& body) {
     return static_cast<uint64_t>(json_reader::integer(body, "seed", 0, 4294967295LL));
 }

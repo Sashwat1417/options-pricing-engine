@@ -19,6 +19,7 @@ struct HedgeVolStudyRequest {
 
     OptionInputs option;
     double quantity;
+    double costRate;  // per trade, fraction of its value
     double premium;
     double drift;
     int rebalances;

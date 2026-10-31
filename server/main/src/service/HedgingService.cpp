@@ -17,9 +17,10 @@ HedgePathResponse HedgingService::hedgePath(const HedgePathRequest& request) con
     const HedgeResult result =
         request.prices.empty()
             ? hedge_simulated_path(request.option, request.quantity,
-                                   request.world,
-                                   request.rebalances, request.seed)
-            : hedge_short_call(request.option, request.quantity, request.prices);
+                                   request.world, request.rebalances, request.seed,
+                                   request.costRate)
+            : hedge_short_call(request.option, request.quantity, request.prices,
+                               request.costRate);
 
     return {result,
             request.quantity,
@@ -36,14 +37,13 @@ HedgeFrequencyResponse HedgingService::hedgeFrequency(const HedgeFrequencyReques
     for (int n : request.rebalances) {
         response.rows.push_back(
             {n, hedge_cost_stats(request.option, request.quantity,
-                                 request.world, n, request.paths,
-                                 request.seed)});
+                                 request.world, n, request.paths, request.seed,
+                                 request.costRate)});
     }
     return response;
 }
 
 HedgeVolStudyResponse HedgingService::hedgeVolStudy(const HedgeVolStudyRequest& request) const {
-    // The vol the premium was effectively sold at: P&L breaks even near this realised vol.
     optional<double> premiumVol = nullopt;
     try {
         premiumVol = implied_vol(request.option, request.premium);
@@ -61,7 +61,8 @@ HedgeVolStudyResponse HedgingService::hedgeVolStudy(const HedgeVolStudyRequest& 
     for (double vol : request.realVols) {
         response.rows.push_back(
             {vol, hedge_cost_stats(request.option, request.quantity, {request.drift, vol},
-                                   request.rebalances, request.paths, request.seed)});
+                                   request.rebalances, request.paths, request.seed,
+                                   request.costRate)});
     }
     return response;
 }

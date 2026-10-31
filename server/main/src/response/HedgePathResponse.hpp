@@ -8,8 +8,8 @@
 
 namespace ope::server {
 
-// {"steps": [{time, spot, delta, shares_held, shares_bought, purchase_cost, cumulative_cost,
-//             interest}],
+// {"steps": [{time, spot, delta, shares_held, shares_bought, purchase_cost, trading_cost,
+//             cumulative_cost, interest}], "total_trading_cost",
 //  "hedge_cost", "pv_hedge_cost", "bs_value", "premium_received", "pnl", "exercised",
 //  "rebalances", "seed"}. Money in dollars; pnl = premium_received − pv_hedge_cost.
 struct HedgePathResponse {

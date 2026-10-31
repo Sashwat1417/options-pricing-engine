@@ -52,8 +52,6 @@ void applyServerLimits(httplib::Server& server) {
     server.set_read_timeout(ServerConfig::kTimeoutSeconds, 0);
     server.set_write_timeout(ServerConfig::kTimeoutSeconds, 0);
     server.set_default_headers({{"X-Content-Type-Options", "nosniff"}});
-    // httplib's default adds SO_REUSEPORT, which lets a second process silently share the
-    // port. Keep SO_REUSEADDR only, so a busy port is an error.
     server.set_socket_options([](socket_t sock) {
         const int yes = 1;
         setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, static_cast<socklen_t>(sizeof(yes)));

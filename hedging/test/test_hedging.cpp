@@ -273,6 +273,55 @@ TEST(HedgeSimulatedPath, RejectsNegativeRealisedVol) {
         invalid_argument);
 }
 
+// Hull 19.10: every trade pays a cost (spread + commission), here a fraction of its value.
+TEST(TransactionCosts, ZeroRateChangesNothing) {
+    const auto path = straight_path(53.0);
+    const auto free = hedge_short_call(kHullCall, kQuantity, path);
+    const auto zero = hedge_short_call(kHullCall, kQuantity, path, 0.0);
+    EXPECT_DOUBLE_EQ(free.pv_hedge_cost, zero.pv_hedge_cost);
+    EXPECT_DOUBLE_EQ(zero.total_trading_cost, 0.0);
+}
+
+TEST(TransactionCosts, EachTradePaysRateTimesItsValueOnBuysAndSells) {
+    const double rate = 0.001;
+    const auto steps = hedge_short_call(kHullCall, kQuantity, kTable192.prices, rate).steps;
+    double total = 0.0;
+    for (const auto& s : steps) {
+        EXPECT_NEAR(s.trading_cost, rate * std::fabs(s.shares_bought) * s.spot, 1e-6);
+        EXPECT_GE(s.trading_cost, 0.0);
+        total += s.trading_cost;
+    }
+    // Week 0 buys 52,160 shares at $49: about $2,556 of costs.
+    EXPECT_NEAR(steps.front().trading_cost, 0.001 * 52160.0 * 49.0, 5.0);
+    EXPECT_NEAR(hedge_short_call(kHullCall, kQuantity, kTable192.prices, rate).total_trading_cost,
+                total, 1e-6);
+}
+
+TEST(TransactionCosts, AddToTheHedgeCostWithInterest) {
+    const auto free = hedge_short_call(kHullCall, kQuantity, kTable192.prices);
+    const auto costly = hedge_short_call(kHullCall, kQuantity, kTable192.prices, 0.001);
+    EXPECT_GT(costly.hedge_cost - free.hedge_cost, costly.total_trading_cost);  // plus interest
+    EXPECT_LT(costly.hedge_cost - free.hedge_cost, costly.total_trading_cost * 1.02);
+}
+
+// With costs, rebalancing more often stops being free: the mean cost rises with frequency.
+TEST(TransactionCosts, MeanCostRisesWithRebalancingFrequency) {
+    const double rate = 0.002;
+    const auto weekly = ope::hedge_cost_stats(kHullCall, kQuantity, kHullWorld, 20, 2000, 31, rate);
+    const auto often = ope::hedge_cost_stats(kHullCall, kQuantity, kHullWorld, 160, 2000, 31, rate);
+    const double se = std::sqrt((weekly.sd_pv_cost * weekly.sd_pv_cost +
+                                 often.sd_pv_cost * often.sd_pv_cost) / 2000.0);
+    EXPECT_GT(often.mean_pv_cost, weekly.mean_pv_cost + 4.0 * se);
+    EXPECT_GT(weekly.mean_pv_cost, weekly.bs_value);
+}
+
+TEST(TransactionCosts, RejectsInvalidRates) {
+    EXPECT_THROW((void)hedge_short_call(kHullCall, kQuantity, straight_path(53.0), -0.001),
+                 invalid_argument);
+    EXPECT_THROW((void)hedge_short_call(kHullCall, kQuantity, straight_path(53.0), 0.2),
+                 invalid_argument);
+}
+
 TEST(Hedging, RejectsInvalidInputs) {
     const auto path = straight_path(53.0);
     OptionInputs put = kHullCall;

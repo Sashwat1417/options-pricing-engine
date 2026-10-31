@@ -19,6 +19,7 @@ struct HedgeFrequencyRequest {
 
     OptionInputs option;
     double quantity;
+    double costRate;  // per trade, fraction of its value
     RealWorld world;
     int paths;
     std::uint64_t seed;
