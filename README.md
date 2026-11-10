@@ -26,7 +26,7 @@ Multi-layer C++ options pricing engine: closed-form Black-Scholes, Monte Carlo s
 | Layer | Module | What it does | Checked against |
 |---|---|---|---|
 | **1 · Black-Scholes** | `black_scholes/` | Price European calls and puts; implied vol by bisection; Greeks Δ Θ Γ ν ρ; sweeps | Hull Ch 15 & 19 examples; put-call parity; finite differences; the BS PDE Θ + rSΔ + ½σ²S²Γ = rV |
-| **2 · Monte Carlo** | `monte_carlo/` | GBM path simulator (exact lognormal steps, seeded); Monte Carlo pricer for European calls and puts with standard error; variance reduction by antithetic variables and control variates (Hull 21.7). Exotics: *next* | Black-Scholes inside the Monte Carlo confidence interval; error falls as 1/√N; put-call parity; speedups of ≈ 4× (antithetic) and ≈ 13× (control variate) on Hull's call |
+| **2 · Monte Carlo** | `monte_carlo/` | GBM path simulator (exact lognormal steps, seeded); Monte Carlo pricer for European calls and puts with standard error; variance reduction by antithetic variables and control variates (Hull 21.7); Asian (average price) options by simulation, with the exact geometric Asian price as the control variate, plus Hull's lognormal approximation (26.13). Barrier and lookback: *next* | Black-Scholes inside the Monte Carlo confidence interval; error falls as 1/√N; put-call parity; speedups of ≈ 4× (antithetic) and ≈ 13× (control variate) on Hull's call. Asian: Hull Example 26.3's 6.00 / 5.70 / 5.63 reproduced; simulation shows that approximation overprices (≈ 5.94 at 12 fixings); the geometric control is worth ≈ 300× plain paths |
 | **3 · Delta hedging** | `hedging/` | Hedge a sold call along a path; cost and P&L; many-path statistics; realised ≠ implied vol; transaction costs | Hull Tables 19.2 / 19.3 row by row; Table 19.1 pattern |
 
 Around them:
@@ -151,6 +151,9 @@ curl localhost:8080/api/v1/price -H 'Content-Type: application/json' \
 | `POST /api/v1/hedge/vol-study` | `spot, strike, expiry, rate, vol, quantity, premium, drift, rebalances, paths, seed, real_vols?` | `rows` of `real_vol, mean_pv_cost, sd_pv_cost, mean_pnl`, plus `premium_implied_vol` (the break-even realised vol) |
 | `POST /api/v1/mc/price` | `type, spot, strike, expiry, rate, vol, paths, seed` (`paths` 4 – 2,000,000) | `bs_price, paths, seed`, and `estimates.{plain, antithetic, control_variate}` each with `price, std_error, ci_low, ci_high` (95%) and `speedup` (plain paths one path is worth) |
 | `POST /api/v1/mc/convergence` | `type, spot, strike, expiry, rate, vol, seed, paths?` (list; default 1,000 … 1,000,000, total ≤ 2,000,000) | `rows` of `paths, estimates` (as above), plus `bs_price` |
+| `POST /api/v1/mc/asian/price` | as `/mc/price`, plus `fixings` (1 – 1,000, equally spaced up to expiry) and optional `yield` (q: dividend yield, or the foreign rate for a currency); paths × fixings ≤ 10,000,000 | `lognormal_price` (Hull 26.3–26.4), `geometric_price` (exact), `fixings, paths, seed, estimates` (as above) |
+| `POST /api/v1/mc/asian/convergence` | as `/mc/convergence`, plus `fixings` and optional `yield`; default path counts stop at the 10,000,000 path-step limit | `rows` of `paths, estimates`, plus `lognormal_price, geometric_price, fixings` |
+| `POST /api/v1/mc/asian/hedge` | `spot, strike, expiry, rate, vol, fixings, yield?, notional, premium, paths, seed` (paths 100 – 200,000): Hull's treasurer, foreign income over the fixings floored by an average rate put | `fair_premium`, `premium_cost`, `floor`, `probability_put_pays`, `mean` and `worst` outcomes, `scenarios` (5th … 95th percentile years: average rate, USD unhedged, put payoff, put P&L, USD hedged), `histogram` of USD received hedged and unhedged |
 
 Bad input returns `400 {"error": "..."}`. `vol` is the implied vol the option is priced and hedged at; `real_vol` (default: `vol`) is how the simulated stock actually moves. `cost_rate` (default 0, e.g. `0.001` = 0.1%) charges every hedge trade that fraction of its value. Bodies over 64 KB get `413`. Each request is logged as one JSON line with its duration.
 
@@ -175,6 +178,7 @@ black_scholes/                Layer 1 (target: ope::black_scholes)
 monte_carlo/                  path simulation shared by Layers 2 and 3 (target: ope::monte_carlo)
 ├── main/include/ope/gbm.hpp  simulate_gbm_path: exact lognormal steps, seeded RNG
 ├── main/include/ope/mc_pricer.hpp  mc_price: European price + standard error, optional variance reduction (Layer 2)
+├── main/include/ope/asian.hpp      Asian options: Monte Carlo, exact geometric price, Hull's approximation, average rate hedge
 ├── main/src/
 └── test/                     statistical tests: Monte Carlo within 4 standard errors of Black-Scholes
 hedging/                      Layer 3: delta-hedging simulator (target: ope::hedging)

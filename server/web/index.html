@@ -240,14 +240,22 @@
     <div class="results" id="view-mc" role="tabpanel" hidden>
       <div class="subtabs" id="mc-products" role="tablist" aria-label="Derivative">
         <button type="button" role="tab" data-product="vanilla" aria-selected="true">Vanilla</button>
+        <button type="button" role="tab" data-product="asian" aria-selected="false">Asian</button>
       </div>
       <section class="card" aria-labelledby="mc-title">
-        <h2 id="mc-title">Price a vanilla option by simulation</h2>
-        <p class="hint">Simulates the stock's price at expiry many times in the risk-neutral world
+        <h2 id="mc-title"><span data-for="vanilla">Price a vanilla option by simulation</span><span data-for="asian" hidden>Price an Asian option by simulation</span></h2>
+        <p class="hint" data-for="vanilla">Simulates the stock's price at expiry many times in the risk-neutral world
           (it grows at the risk-free rate r, not its real expected return), averages the
           discounted payoff and reports the standard error (Hull 21.6). A vanilla option also has
           a Black-Scholes price, so this checks the engine, and its variance reduction, before
           it prices options with no formula.</p>
+        <p class="hint" data-for="asian" hidden>An average price option (Hull 26.13): the call pays
+          max(S<sub>ave</sub> − K, 0), where S<sub>ave</sub> is the arithmetic average of the
+          stock's price at each fixing, equally spaced up to expiry (12 = monthly over a year).
+          The payoff depends on the whole path, so there is no exact formula: each path walks
+          the stock through every fixing. Averaging smooths the path, so it costs less than the
+          vanilla option. Hull Example 26.3 (S = K = 50, 1 year, r = 10%, σ = 40%) quotes 6.00
+          for 12 fixings from a lognormal approximation; simulation gives about 5.94.</p>
         <div class="hedge-params">
           <label>Type
             <select id="mc-type">
@@ -255,6 +263,8 @@
               <option value="put">Put</option>
             </select>
           </label>
+          <label data-for="asian" hidden>Fixings <input id="mc-fixings" type="number" step="1" min="1" max="1000" value="12"></label>
+          <label data-for="asian" hidden>Yield q (%) <input id="mc-yield" type="number" step="any" value="0"></label>
           <label>Paths <input id="mc-paths" type="number" step="1" min="2" max="2000000" value="100000"></label>
           <label>Seed <input id="mc-seed" type="number" step="1" min="0" value="42"></label>
         </div>
@@ -266,9 +276,9 @@
 
       <section class="stat-grid" aria-label="Monte Carlo result">
         <div class="card stat">
-          <span class="label">Black-Scholes</span>
-          <span id="mc-bs" class="value small">–</span>
-          <span class="hint">exact formula (Layer 1): the target</span>
+          <span id="mc-ref-label" class="label">Black-Scholes</span>
+          <span id="mc-ref" class="value small">–</span>
+          <span id="mc-ref-hint" class="hint">exact formula (Layer 1): the target</span>
         </div>
         <div class="card stat">
           <span class="label">Plain</span>
@@ -291,7 +301,7 @@
       </section>
       <section class="card" aria-labelledby="mc-vr-title">
         <h2 id="mc-vr-title">Variance reduction (Hull 21.7)</h2>
-        <p class="hint">Same number of simulated prices for every method; only the error changes.
+        <p class="hint" data-for="vanilla">Same number of simulated prices for every method; only the error changes.
           <strong>Antithetic</strong> pairs each draw ε with −ε, so a high price and its mirror
           low price cancel much of each other's noise. <strong>Control variate</strong> also
           tracks the discounted stock price, whose exact average is today's spot S, and removes
@@ -299,6 +309,14 @@
           hedge of β shares. The speedup is how many plain paths one path of the method is worth.
           Both help most for in-the-money options and least far out of the money, where most
           paths pay nothing.</p>
+        <p class="hint" data-for="asian" hidden>Same number of simulated paths for every method;
+          only the error changes. <strong>Control variate</strong> prices the geometric average
+          option on the same paths. Its average is exactly lognormal, so its price has an exact
+          formula, and it moves almost one-for-one with the arithmetic payoff: whatever error it
+          shows on a run is subtracted from the arithmetic estimate. That makes one path worth
+          hundreds of plain ones. <strong>Antithetic</strong> helps less than for a vanilla
+          option, because averaging has already cancelled much of the noise that ε and −ε would
+          cancel.</p>
       </section>
 
       <section class="card" aria-labelledby="mc-conv-title">
@@ -311,6 +329,58 @@
           <table class="data-table" id="mc-table">
             <thead>
               <tr><th>Paths</th><th>Plain</th><th>Antithetic</th><th>Control variate</th><th>Speedup (anti / CV)</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="tr-title" data-for="asian" hidden>
+        <h2 id="tr-title">Hull's treasurer: hedging a year of foreign income</h2>
+        <p class="hint">A US company receives AUD 100 million spread evenly over the year and converts
+          each payment at that day's rate, so it ends up with notional × the average rate in USD. An
+          average rate put struck at K guarantees at least notional × K, minus what the put cost.
+          Hull gives no numbers, so the inputs are illustrative: AUD/USD 0.65, floor 0.65, r<sub>USD</sub>
+          4%, r<sub>AUD</sub> 3.5% (the yield q: AUD earns its own interest, so the rate drifts at
+          r − q), σ 10%, monthly fixings. The years are simulated at that risk-neutral drift, so the
+          middle year sits at the forward rate. Always a put; it uses the Option inputs on the left
+          and the Fixings and Yield above.</p>
+        <div class="hedge-params">
+          <label>Notional (AUD million) <input id="tr-notional" type="number" step="any" min="0" value="100"></label>
+          <label>Premium paid (USD per AUD) <input id="tr-premium" type="number" step="any" min="0" value="0.016"></label>
+          <label>Simulated years <input id="tr-paths" type="number" step="1" min="100" max="200000" value="20000"></label>
+        </div>
+        <div class="hedge-actions">
+          <button type="button" id="tr-load" class="button primary">Load the treasurer's inputs</button>
+        </div>
+        <p id="tr-error" class="error" role="alert" hidden></p>
+        <div class="stat-grid">
+          <div class="card stat">
+            <span class="label">Fair premium</span>
+            <span id="tr-fair" class="value small">–</span>
+            <span id="tr-fair-hint" class="hint"></span>
+          </div>
+          <div class="card stat">
+            <span class="label">Premium paid</span>
+            <span id="tr-cost" class="value small">–</span>
+            <span id="tr-cost-hint" class="hint"></span>
+          </div>
+          <div class="card stat">
+            <span class="label">Guaranteed floor</span>
+            <span id="tr-floor" class="value small">–</span>
+            <span id="tr-floor-hint" class="hint"></span>
+          </div>
+          <div class="card stat">
+            <span class="label">Put P&amp;L, average year</span>
+            <span id="tr-pnl" class="value small">–</span>
+            <span id="tr-pnl-hint" class="hint"></span>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="tr-chart" aria-label="USD received over the year, with and without the put"></canvas></div>
+        <div class="table-wrap">
+          <table class="data-table" id="tr-table">
+            <thead>
+              <tr><th>Year</th><th>Average rate</th><th>USD unhedged</th><th>Put payoff</th><th>Put P&amp;L</th><th>USD hedged</th></tr>
             </thead>
             <tbody></tbody>
           </table>

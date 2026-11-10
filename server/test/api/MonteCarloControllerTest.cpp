@@ -19,6 +19,9 @@ namespace {
 const string kHullCall = R"({"type":"call","spot":42,"strike":40,"expiry":0.5,"rate":0.1,
     "vol":0.2,"paths":50000,"seed":42})";
 
+const string kHullAsianCall = R"({"type":"call","spot":50,"strike":50,"expiry":1,"rate":0.1,
+    "vol":0.4,"fixings":12,"paths":20000,"seed":42})";
+
 // Real server on a random localhost port, one per test.
 class MonteCarloControllerTest : public ::testing::Test {
 protected:
@@ -80,4 +83,47 @@ TEST_F(MonteCarloControllerTest, BadInputIs400) {
     ASSERT_TRUE(res);
     EXPECT_EQ(res->status, 400);
     EXPECT_TRUE(json::parse(res->body).contains("error"));
+}
+
+TEST_F(MonteCarloControllerTest, AsianPriceReturnsReferencesAndEstimates) {
+    const auto res = post("/api/v1/mc/asian/price", kHullAsianCall);
+    ASSERT_TRUE(res);
+    EXPECT_EQ(res->status, 200);
+    const json body = json::parse(res->body);
+    for (const char* key : {"lognormal_price", "geometric_price", "fixings", "paths", "seed"}) {
+        EXPECT_TRUE(body.contains(key)) << key;
+    }
+    EXPECT_TRUE(body.at("estimates").contains("control_variate"));
+}
+
+TEST_F(MonteCarloControllerTest, AsianConvergenceAndBadFixings) {
+    json request = json::parse(kHullAsianCall);
+    request["paths"] = {1000, 4000};
+    auto res = post("/api/v1/mc/asian/convergence", request.dump());
+    ASSERT_TRUE(res);
+    EXPECT_EQ(res->status, 200);
+    EXPECT_EQ(json::parse(res->body).at("rows").size(), 2u);
+
+    request["fixings"] = 0;
+    res = post("/api/v1/mc/asian/price", request.dump());
+    ASSERT_TRUE(res);
+    EXPECT_EQ(res->status, 400);
+}
+
+TEST_F(MonteCarloControllerTest, AsianHedgeReturnsOutcomesAndRejectsNegativePremium) {
+    json request = {{"spot", 0.65},  {"strike", 0.65},    {"expiry", 1},    {"rate", 0.04},
+                    {"vol", 0.1},    {"yield", 0.035},    {"fixings", 12},  {"notional", 1e8},
+                    {"premium", 0.016}, {"paths", 5000}, {"seed", 1}};
+    auto res = post("/api/v1/mc/asian/hedge", request.dump());
+    ASSERT_TRUE(res);
+    EXPECT_EQ(res->status, 200);
+    const json body = json::parse(res->body);
+    for (const char* key : {"fair_premium", "floor", "scenarios", "histogram", "mean"}) {
+        EXPECT_TRUE(body.contains(key)) << key;
+    }
+
+    request["premium"] = -0.01;
+    res = post("/api/v1/mc/asian/hedge", request.dump());
+    ASSERT_TRUE(res);
+    EXPECT_EQ(res->status, 400);
 }

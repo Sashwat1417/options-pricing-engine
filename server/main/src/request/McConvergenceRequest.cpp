@@ -12,12 +12,14 @@ using std::vector;
 
 namespace ope::server {
 
-namespace {
+vector<int> defaultPathCounts() {
+    return {1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000};
+}
 
-vector<int> parsePaths(const json& body) {
+vector<int> mcPathCounts(const json& body) {
     const auto it = body.find("paths");
     if (it == body.end()) {
-        return {1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000};
+        return {};
     }
     if (!it->is_array() || it->empty() || it->size() > 20) {
         throw invalid_argument("paths must be an array of 1 to 20 integers");
@@ -34,13 +36,14 @@ vector<int> parsePaths(const json& body) {
     return counts;
 }
 
-}  // namespace
-
 McConvergenceRequest McConvergenceRequest::fromJson(const json& body) {
     McConvergenceRequest request{};
     request.option = mcOption(body);
     request.seed = mcSeed(body);
-    request.paths = parsePaths(body);
+    request.paths = mcPathCounts(body);
+    if (request.paths.empty()) {
+        request.paths = defaultPathCounts();
+    }
 
     long long work = 0;
     for (int n : request.paths) work += n;

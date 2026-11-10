@@ -359,10 +359,12 @@ document.querySelectorAll(".tabs button").forEach((btn) => {
 });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", refresh);
 
-// Deep link to a tab or Greek: /#pricing, /#greeks, /#greeks-theta, /#iv, /#hedging, /#mc.
-const [linkedView, linkedGreek] = location.hash.slice(1).split("-");
-if (linkedGreek in GREEKS) {
-  greek = linkedGreek;
+// Deep link to a tab, Greek or Monte Carlo product: /#pricing, /#greeks, /#greeks-theta, /#iv,
+// /#hedging, /#mc, /#mc-asian.
+const [linkedView, linkedSub] = location.hash.slice(1).split("-");
+if (linkedView === "mc") selectMcProduct(linkedSub);
+if (linkedSub in GREEKS) {
+  greek = linkedSub;
   document.querySelectorAll("#view-greeks .subtabs button").forEach((b) =>
     b.setAttribute("aria-selected", String(b.dataset.greek === greek)));
 }

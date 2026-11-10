@@ -1,6 +1,7 @@
-# Monte Carlo: stock path simulation (Layers 2 and 3) and the Layer 2 pricer.
+# Monte Carlo: stock path simulation (Layers 2 and 3) and the Layer 2 pricers.
 
 add_library(ope_monte_carlo
+    main/src/asian.cpp
     main/src/gbm.cpp
     main/src/mc_pricer.cpp
 )
@@ -20,6 +21,7 @@ ope_enable_sanitizers(ope_monte_carlo)
 
 if(OPE_BUILD_TESTS)
     add_executable(monte_carlo_tests
+        test/test_asian.cpp
         test/test_gbm.cpp
         test/test_mc_pricer.cpp
     )
