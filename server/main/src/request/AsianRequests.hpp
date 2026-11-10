@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ope/option.hpp"
+#include "ope/asian.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -16,26 +16,40 @@ struct AsianLimits {
     static constexpr long long kMaxWork = 10000000;
 };
 
-// POST /api/v1/mc/asian/price  {type, spot, strike, expiry, rate, vol, fixings, paths, seed}
+// POST /api/v1/mc/asian/price
+//   {type, spot, strike, expiry, rate, vol, fixings, yield?, paths, seed}
+// yield: q, a dividend yield or the foreign rate for a currency; default 0.
 struct AsianPriceRequest {
-    OptionInputs option;
-    int fixings;
+    AsianInputs asian;
     int paths;
     std::uint64_t seed;
 
     static AsianPriceRequest fromJson(const nlohmann::json& body);
 };
 
-// POST /api/v1/mc/asian/convergence  {type, spot, strike, expiry, rate, vol, fixings, seed,
-//                                     paths?: [..]}
+// POST /api/v1/mc/asian/convergence
+//   {type, spot, strike, expiry, rate, vol, fixings, yield?, seed, paths?: [..]}
 // Without paths: the default counts, up to the largest set that fits the work limit.
 struct AsianConvergenceRequest {
-    OptionInputs option;
-    int fixings;
+    AsianInputs asian;
     std::uint64_t seed;
     std::vector<int> paths;
 
     static AsianConvergenceRequest fromJson(const nlohmann::json& body);
+};
+
+// POST /api/v1/mc/asian/hedge
+//   {spot, strike, expiry, rate, vol, fixings, yield?, notional, premium, paths, seed}
+// Hull's treasurer: notional units of foreign currency over the fixings, floored by an
+// average rate put bought at `premium` per unit. Always a put.
+struct AsianHedgeRequest {
+    static constexpr int kMaxPaths = 200000;
+
+    AverageRateHedge hedge;
+    int paths;
+    std::uint64_t seed;
+
+    static AsianHedgeRequest fromJson(const nlohmann::json& body);
 };
 
 }  // namespace ope::server

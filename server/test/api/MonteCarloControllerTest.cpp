@@ -109,3 +109,21 @@ TEST_F(MonteCarloControllerTest, AsianConvergenceAndBadFixings) {
     ASSERT_TRUE(res);
     EXPECT_EQ(res->status, 400);
 }
+
+TEST_F(MonteCarloControllerTest, AsianHedgeReturnsOutcomesAndRejectsNegativePremium) {
+    json request = {{"spot", 0.65},  {"strike", 0.65},    {"expiry", 1},    {"rate", 0.04},
+                    {"vol", 0.1},    {"yield", 0.035},    {"fixings", 12},  {"notional", 1e8},
+                    {"premium", 0.016}, {"paths", 5000}, {"seed", 1}};
+    auto res = post("/api/v1/mc/asian/hedge", request.dump());
+    ASSERT_TRUE(res);
+    EXPECT_EQ(res->status, 200);
+    const json body = json::parse(res->body);
+    for (const char* key : {"fair_premium", "floor", "scenarios", "histogram", "mean"}) {
+        EXPECT_TRUE(body.contains(key)) << key;
+    }
+
+    request["premium"] = -0.01;
+    res = post("/api/v1/mc/asian/hedge", request.dump());
+    ASSERT_TRUE(res);
+    EXPECT_EQ(res->status, 400);
+}

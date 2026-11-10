@@ -3,6 +3,7 @@
 #include "estimators.hpp"
 #include "ope/normal.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <stdexcept>
@@ -11,7 +12,10 @@
 
 using std::exp;
 using std::invalid_argument;
+using std::isfinite;
 using std::log;
+using std::max;
+using std::sort;
 using std::sqrt;
 using std::string;
 using std::uint64_t;
@@ -21,13 +25,16 @@ namespace ope {
 
 namespace {
 
-void require_asian(const OptionInputs& option, int fixings, const string& caller) {
-    validate(option);
-    if (option.time_to_expiry <= 0.0) {
+void require_asian(const AsianInputs& asian, const string& caller) {
+    validate(asian.option);
+    if (asian.option.time_to_expiry <= 0.0) {
         throw invalid_argument(caller + " needs time_to_expiry > 0");
     }
-    if (fixings < 1) {
+    if (asian.fixings < 1) {
         throw invalid_argument(caller + " needs fixings >= 1");
+    }
+    if (!isfinite(asian.yield)) {
+        throw invalid_argument(caller + " needs a finite yield");
     }
 }
 
@@ -44,22 +51,26 @@ double black(OptionType type, double forward, double variance, double strike,
                : discount * (strike * norm_cdf(-d2) - forward * norm_cdf(-d1));
 }
 
-// One path of `fixings` lognormal steps. Value: the arithmetic average payoff.
-// Control: the geometric average payoff.
-class Asian {
+struct Averages {
+    double arithmetic;
+    double geometric;
+};
+
+// Walks one path through the fixings with lognormal steps at the drift r − q.
+class AsianPath {
 public:
-    Asian(const OptionInputs& option, int fixings)
-        : option_(option),
-          fixings_(fixings),
-          log_spot_(log(option.spot)),
-          drift_((option.rate - 0.5 * option.volatility * option.volatility) *
-                 option.time_to_expiry / fixings),
-          shock_scale_(option.volatility * sqrt(option.time_to_expiry / fixings)),
-          discount_(exp(-option.rate * option.time_to_expiry)) {}
+    explicit AsianPath(const AsianInputs& asian)
+        : fixings_(asian.fixings),
+          log_spot_(log(asian.option.spot)),
+          drift_((asian.option.rate - asian.yield -
+                  0.5 * asian.option.volatility * asian.option.volatility) *
+                 asian.option.time_to_expiry / asian.fixings),
+          shock_scale_(asian.option.volatility *
+                       sqrt(asian.option.time_to_expiry / asian.fixings)) {}
 
     int shocks() const { return fixings_; }
 
-    detail::Sample evaluate(const vector<double>& epsilon, double sign) const {
+    Averages averages(const vector<double>& epsilon, double sign) const {
         double log_price = log_spot_;
         double sum = 0.0;
         double sum_of_logs = 0.0;
@@ -68,65 +79,122 @@ public:
             sum += exp(log_price);
             sum_of_logs += log_price;
         }
-        return {discount_ * detail::payoff(option_.type, sum / fixings_, option_.strike),
-                discount_ * detail::payoff(option_.type, exp(sum_of_logs / fixings_),
-                                           option_.strike)};
+        return {sum / fixings_, exp(sum_of_logs / fixings_)};
     }
 
 private:
-    const OptionInputs& option_;
     int fixings_;
     double log_spot_;
     double drift_;
     double shock_scale_;
+};
+
+// Value: the arithmetic average payoff. Control: the geometric average payoff.
+class Asian {
+public:
+    explicit Asian(const AsianInputs& asian)
+        : path_(asian),
+          type_(asian.option.type),
+          strike_(asian.option.strike),
+          discount_(exp(-asian.option.rate * asian.option.time_to_expiry)) {}
+
+    int shocks() const { return path_.shocks(); }
+
+    detail::Sample evaluate(const vector<double>& epsilon, double sign) const {
+        const Averages a = path_.averages(epsilon, sign);
+        return {discount_ * detail::payoff(type_, a.arithmetic, strike_),
+                discount_ * detail::payoff(type_, a.geometric, strike_)};
+    }
+
+private:
+    AsianPath path_;
+    OptionType type_;
+    double strike_;
     double discount_;
 };
 
 }  // namespace
 
 // ln G = (1/m)·Σ ln S(tᵢ), with tᵢ = i·Δt:
-//   mean     ln S + (r − σ²/2)·Δt·(m + 1)/2
+//   mean     ln S + (r − q − σ²/2)·Δt·(m + 1)/2
 //   variance σ²·(1/m²)·Σᵢ Σⱼ min(tᵢ, tⱼ) = σ²·Δt·(m + 1)(2m + 1)/(6m)
-double geometric_asian_price(const OptionInputs& option, int fixings) {
-    require_asian(option, fixings, "geometric_asian_price");
-    const double m = fixings;
-    const double dt = option.time_to_expiry / m;
-    const double sigma2 = option.volatility * option.volatility;
-    const double mean = log(option.spot) + (option.rate - 0.5 * sigma2) * dt * (m + 1) / 2;
+double geometric_asian_price(const AsianInputs& asian) {
+    require_asian(asian, "geometric_asian_price");
+    const OptionInputs& o = asian.option;
+    const double m = asian.fixings;
+    const double dt = o.time_to_expiry / m;
+    const double sigma2 = o.volatility * o.volatility;
+    const double mean =
+        log(o.spot) + (o.rate - asian.yield - 0.5 * sigma2) * dt * (m + 1) / 2;
     const double variance = sigma2 * dt * (m + 1) * (2 * m + 1) / (6 * m);
-    return black(option.type, exp(mean + 0.5 * variance), variance, option.strike,
-                 exp(-option.rate * option.time_to_expiry));
+    return black(o.type, exp(mean + 0.5 * variance), variance, o.strike,
+                 exp(-o.rate * o.time_to_expiry));
 }
 
-// Fᵢ = S·e^(r·tᵢ), M₁ = (1/m)·ΣFᵢ, M₂ = (1/m²)·Σᵢ Σⱼ FᵢFⱼ·e^(σ²·min(tᵢ, tⱼ)),
+// Fᵢ = S·e^((r − q)·tᵢ), M₁ = (1/m)·ΣFᵢ, M₂ = (1/m²)·Σᵢ Σⱼ FᵢFⱼ·e^(σ²·min(tᵢ, tⱼ)),
 // then F₀ = M₁ and σ²T = ln(M₂ / M₁²).
-double asian_lognormal_price(const OptionInputs& option, int fixings) {
-    require_asian(option, fixings, "asian_lognormal_price");
-    const double dt = option.time_to_expiry / fixings;
-    const double sigma2 = option.volatility * option.volatility;
+double asian_lognormal_price(const AsianInputs& asian) {
+    require_asian(asian, "asian_lognormal_price");
+    const OptionInputs& o = asian.option;
+    const double dt = o.time_to_expiry / asian.fixings;
+    const double sigma2 = o.volatility * o.volatility;
     double m1 = 0.0;
     double m2 = 0.0;
     double earlier = 0.0;
-    for (int i = 1; i <= fixings; ++i) {
+    for (int i = 1; i <= asian.fixings; ++i) {
         const double t = i * dt;
-        const double forward = option.spot * exp(option.rate * t);
+        const double forward = o.spot * exp((o.rate - asian.yield) * t);
         const double weighted = forward * exp(sigma2 * t);
         m1 += forward;
         m2 += forward * weighted + 2.0 * forward * earlier;
         earlier += weighted;
     }
-    m1 /= fixings;
-    m2 /= static_cast<double>(fixings) * fixings;
-    return black(option.type, m1, log(m2 / (m1 * m1)), option.strike,
-                 exp(-option.rate * option.time_to_expiry));
+    m1 /= asian.fixings;
+    m2 /= static_cast<double>(asian.fixings) * asian.fixings;
+    return black(o.type, m1, log(m2 / (m1 * m1)), o.strike, exp(-o.rate * o.time_to_expiry));
 }
 
-McResult mc_asian_price(const OptionInputs& option, int fixings, int paths, uint64_t seed,
+McResult mc_asian_price(const AsianInputs& asian, int paths, uint64_t seed,
                         VarianceReduction method) {
-    require_asian(option, fixings, "mc_asian_price");
+    require_asian(asian, "mc_asian_price");
     detail::require_paths(paths, method, "mc_asian_price");
-    return detail::estimate(Asian(option, fixings), geometric_asian_price(option, fixings),
-                            paths, seed, method);
+    return detail::estimate(Asian(asian), geometric_asian_price(asian), paths, seed, method);
+}
+
+vector<HedgeOutcome> simulate_average_rate_hedge(const AverageRateHedge& hedge, int paths,
+                                                 uint64_t seed) {
+    require_asian(hedge.put, "simulate_average_rate_hedge");
+    if (hedge.put.option.type != OptionType::Put) {
+        throw invalid_argument("simulate_average_rate_hedge needs a put");
+    }
+    if (!isfinite(hedge.notional) || hedge.notional <= 0.0) {
+        throw invalid_argument("simulate_average_rate_hedge needs notional > 0");
+    }
+    if (!isfinite(hedge.premium) || hedge.premium < 0.0) {
+        throw invalid_argument("simulate_average_rate_hedge needs premium >= 0");
+    }
+    if (paths < 1) {
+        throw invalid_argument("simulate_average_rate_hedge needs paths >= 1");
+    }
+
+    const OptionInputs& o = hedge.put.option;
+    const AsianPath path(hedge.put);
+    const double premium_cost =
+        hedge.notional * hedge.premium * exp(o.rate * o.time_to_expiry);
+    detail::Shocks shocks(path.shocks(), seed);
+    vector<HedgeOutcome> outcomes;
+    outcomes.reserve(static_cast<size_t>(paths));
+    for (int i = 0; i < paths; ++i) {
+        const double average = path.averages(shocks.next(), 1.0).arithmetic;
+        const double unhedged = hedge.notional * average;
+        const double payoff = hedge.notional * max(o.strike - average, 0.0);
+        outcomes.push_back(
+            {average, unhedged, payoff, payoff - premium_cost, unhedged + payoff - premium_cost});
+    }
+    sort(outcomes.begin(), outcomes.end(), [](const HedgeOutcome& a, const HedgeOutcome& b) {
+        return a.average_rate < b.average_rate;
+    });
+    return outcomes;
 }
 
 }  // namespace ope

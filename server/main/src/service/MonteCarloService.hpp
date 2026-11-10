@@ -16,6 +16,7 @@ public:
 
     AsianPriceResponse asianPrice(const AsianPriceRequest& request) const;
     AsianConvergenceResponse asianConvergence(const AsianConvergenceRequest& request) const;
+    AsianHedgeResponse asianHedge(const AsianHedgeRequest& request) const;
 };
 
 }  // namespace ope::server

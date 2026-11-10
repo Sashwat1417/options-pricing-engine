@@ -264,6 +264,7 @@
             </select>
           </label>
           <label data-for="asian" hidden>Fixings <input id="mc-fixings" type="number" step="1" min="1" max="1000" value="12"></label>
+          <label data-for="asian" hidden>Yield q (%) <input id="mc-yield" type="number" step="any" value="0"></label>
           <label>Paths <input id="mc-paths" type="number" step="1" min="2" max="2000000" value="100000"></label>
           <label>Seed <input id="mc-seed" type="number" step="1" min="0" value="42"></label>
         </div>
@@ -328,6 +329,58 @@
           <table class="data-table" id="mc-table">
             <thead>
               <tr><th>Paths</th><th>Plain</th><th>Antithetic</th><th>Control variate</th><th>Speedup (anti / CV)</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="tr-title" data-for="asian" hidden>
+        <h2 id="tr-title">Hull's treasurer: hedging a year of foreign income</h2>
+        <p class="hint">A US company receives AUD 100 million spread evenly over the year and converts
+          each payment at that day's rate, so it ends up with notional × the average rate in USD. An
+          average rate put struck at K guarantees at least notional × K, minus what the put cost.
+          Hull gives no numbers, so the inputs are illustrative: AUD/USD 0.65, floor 0.65, r<sub>USD</sub>
+          4%, r<sub>AUD</sub> 3.5% (the yield q: AUD earns its own interest, so the rate drifts at
+          r − q), σ 10%, monthly fixings. The years are simulated at that risk-neutral drift, so the
+          middle year sits at the forward rate. Always a put; it uses the Option inputs on the left
+          and the Fixings and Yield above.</p>
+        <div class="hedge-params">
+          <label>Notional (AUD million) <input id="tr-notional" type="number" step="any" min="0" value="100"></label>
+          <label>Premium paid (USD per AUD) <input id="tr-premium" type="number" step="any" min="0" value="0.016"></label>
+          <label>Simulated years <input id="tr-paths" type="number" step="1" min="100" max="200000" value="20000"></label>
+        </div>
+        <div class="hedge-actions">
+          <button type="button" id="tr-load" class="button primary">Load the treasurer's inputs</button>
+        </div>
+        <p id="tr-error" class="error" role="alert" hidden></p>
+        <div class="stat-grid">
+          <div class="card stat">
+            <span class="label">Fair premium</span>
+            <span id="tr-fair" class="value small">–</span>
+            <span id="tr-fair-hint" class="hint"></span>
+          </div>
+          <div class="card stat">
+            <span class="label">Premium paid</span>
+            <span id="tr-cost" class="value small">–</span>
+            <span id="tr-cost-hint" class="hint"></span>
+          </div>
+          <div class="card stat">
+            <span class="label">Guaranteed floor</span>
+            <span id="tr-floor" class="value small">–</span>
+            <span id="tr-floor-hint" class="hint"></span>
+          </div>
+          <div class="card stat">
+            <span class="label">Put P&amp;L, average year</span>
+            <span id="tr-pnl" class="value small">–</span>
+            <span id="tr-pnl-hint" class="hint"></span>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="tr-chart" aria-label="USD received over the year, with and without the put"></canvas></div>
+        <div class="table-wrap">
+          <table class="data-table" id="tr-table">
+            <thead>
+              <tr><th>Year</th><th>Average rate</th><th>USD unhedged</th><th>Put payoff</th><th>Put P&amp;L</th><th>USD hedged</th></tr>
             </thead>
             <tbody></tbody>
           </table>

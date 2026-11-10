@@ -12,6 +12,7 @@
 using nlohmann::json;
 using ope::OptionType;
 using ope::server::AsianConvergenceRequest;
+using ope::server::AsianHedgeRequest;
 using ope::server::AsianLimits;
 using ope::server::AsianPriceRequest;
 using ope::server::McConvergenceRequest;
@@ -124,9 +125,10 @@ TEST(McConvergenceRequest, ValidatesPathListAndCapsTotalWork) {
 
 TEST(AsianPriceRequest, ParsesFixingsPathsAndSeed) {
     const auto r = AsianPriceRequest::fromJson(hullAsian());
-    EXPECT_EQ(r.option.type, OptionType::Call);
-    EXPECT_DOUBLE_EQ(r.option.volatility, 0.4);
-    EXPECT_EQ(r.fixings, 12);
+    EXPECT_EQ(r.asian.option.type, OptionType::Call);
+    EXPECT_DOUBLE_EQ(r.asian.option.volatility, 0.4);
+    EXPECT_EQ(r.asian.fixings, 12);
+    EXPECT_DOUBLE_EQ(r.asian.yield, 0.0);
     EXPECT_EQ(r.paths, 50000);
     EXPECT_EQ(r.seed, 42u);
 }
@@ -172,4 +174,48 @@ TEST(AsianConvergenceRequest, ExplicitPathCountsMustFitTheWorkLimit) {
     EXPECT_NE(asianConvergenceError(body).find("paths × fixings"), string::npos);
     body["paths"] = {3};
     EXPECT_NE(asianConvergenceError(body), "");
+}
+
+TEST(AsianPriceRequest, ReadsAnOptionalYield) {
+    json body = hullAsian();
+    body["yield"] = 0.035;
+    EXPECT_DOUBLE_EQ(AsianPriceRequest::fromJson(body).asian.yield, 0.035);
+    body["yield"] = "x";
+    EXPECT_NE(asianPriceError(body), "");
+}
+
+namespace {
+
+json audHedge() {
+    return {{"spot", 0.65},    {"strike", 0.65},    {"expiry", 1},       {"rate", 0.04},
+            {"vol", 0.1},      {"yield", 0.035},    {"fixings", 12},     {"notional", 1e8},
+            {"premium", 0.016}, {"paths", 20000},   {"seed", 1}};
+}
+
+}  // namespace
+
+TEST(AsianHedgeRequest, ParsesAnAverageRatePut) {
+    const auto r = AsianHedgeRequest::fromJson(audHedge());
+    EXPECT_EQ(r.hedge.put.option.type, OptionType::Put);
+    EXPECT_DOUBLE_EQ(r.hedge.put.yield, 0.035);
+    EXPECT_EQ(r.hedge.put.fixings, 12);
+    EXPECT_DOUBLE_EQ(r.hedge.notional, 1e8);
+    EXPECT_DOUBLE_EQ(r.hedge.premium, 0.016);
+    EXPECT_EQ(r.paths, 20000);
+}
+
+TEST(AsianHedgeRequest, RejectsMissingFieldsAndTooManyPaths) {
+    for (const char* name : {"notional", "premium", "fixings", "paths"}) {
+        json body = audHedge();
+        body.erase(name);
+        try {
+            (void)AsianHedgeRequest::fromJson(body);
+            ADD_FAILURE() << name;
+        } catch (const invalid_argument& e) {
+            EXPECT_EQ(string(e.what()), string("missing field: ") + name);
+        }
+    }
+    json body = audHedge();
+    body["paths"] = AsianHedgeRequest::kMaxPaths + 1;
+    EXPECT_THROW((void)AsianHedgeRequest::fromJson(body), invalid_argument);
 }

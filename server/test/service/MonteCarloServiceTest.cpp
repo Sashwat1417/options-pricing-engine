@@ -4,17 +4,22 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
+#include <cstddef>
 #include <stdexcept>
 
 using nlohmann::json;
 using ope::OptionInputs;
 using ope::OptionType;
 using ope::server::AsianConvergenceRequest;
+using ope::server::AsianHedgeRequest;
 using ope::server::AsianPriceRequest;
 using ope::server::McConvergenceRequest;
 using ope::server::McPriceRequest;
 using ope::server::MonteCarloService;
+using std::exp;
 using std::invalid_argument;
+using std::size_t;
 
 namespace {
 
@@ -86,7 +91,7 @@ TEST(MonteCarloService, LibraryRejectionsSurfaceAsInvalidArgument) {
 }
 
 TEST(MonteCarloService, AsianPriceReportsBothReferencesAndEveryMethod) {
-    const json out = service.asianPrice({kHullAsianCall, 12, 100000, 42}).toJson();
+    const json out = service.asianPrice({{kHullAsianCall, 12}, 100000, 42}).toJson();
     EXPECT_NEAR(out.at("lognormal_price").get<double>(), 6.00, 0.005);
     EXPECT_LT(out.at("geometric_price").get<double>(), out.at("lognormal_price").get<double>());
     EXPECT_EQ(out.at("fixings").get<int>(), 12);
@@ -101,10 +106,46 @@ TEST(MonteCarloService, AsianPriceReportsBothReferencesAndEveryMethod) {
 }
 
 TEST(MonteCarloService, AsianConvergenceHasOneRowPerPathCount) {
-    const AsianConvergenceRequest request{kHullAsianCall, 12, 7, {1000, 10000}};
+    const AsianConvergenceRequest request{{kHullAsianCall, 12}, 7, {1000, 10000}};
     const json out = service.asianConvergence(request).toJson();
     ASSERT_EQ(out.at("rows").size(), 2u);
     EXPECT_EQ(out.at("rows")[1].at("paths").get<int>(), 10000);
     EXPECT_EQ(out.at("fixings").get<int>(), 12);
     EXPECT_TRUE(out.contains("geometric_price"));
+}
+
+// Illustrative AUD/USD treasurer: AUD 100M over 12 monthly fixings, floor 0.65.
+TEST(MonteCarloService, AsianHedgeFloorsTheYearAndReportsPnl) {
+    AsianHedgeRequest request{};
+    request.hedge = {{{OptionType::Put, 0.65, 0.65, 1.0, 0.04, 0.10}, 12, 0.035}, 1e8, 0.016};
+    request.paths = 20000;
+    request.seed = 5;
+    const json out = service.asianHedge(request).toJson();
+
+    EXPECT_NEAR(out.at("fair_premium").get<double>(), 0.01447, 0.0002);
+    const double cost = 1e8 * 0.016 * exp(0.04);
+    EXPECT_NEAR(out.at("premium_cost").get<double>(), cost, 1e-6);
+    EXPECT_NEAR(out.at("floor").get<double>(), 1e8 * 0.65 - cost, 1e-6);
+    EXPECT_GE(out.at("worst").at("hedged").get<double>(), out.at("floor").get<double>() - 1e-6);
+    EXPECT_LT(out.at("worst").at("unhedged").get<double>(), out.at("floor").get<double>());
+
+    const double p = out.at("probability_put_pays").get<double>();
+    EXPECT_GT(p, 0.3);
+    EXPECT_LT(p, 0.7);
+    EXPECT_LT(out.at("mean").at("put_pnl").get<double>(), 0.0);
+
+    const json& rows = out.at("scenarios");
+    ASSERT_EQ(rows.size(), 5u);
+    for (size_t i = 1; i < rows.size(); ++i) {
+        EXPECT_LE(rows[i - 1].at("average_rate").get<double>(),
+                  rows[i].at("average_rate").get<double>());
+    }
+    const json& h = out.at("histogram");
+    EXPECT_EQ(h.at("edges").size(), h.at("hedged").size() + 1);
+    int unhedged = 0;
+    int hedged = 0;
+    for (const json& n : h.at("unhedged")) unhedged += n.get<int>();
+    for (const json& n : h.at("hedged")) hedged += n.get<int>();
+    EXPECT_EQ(unhedged, 20000);
+    EXPECT_EQ(hedged, 20000);
 }
