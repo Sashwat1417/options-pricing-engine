@@ -32,16 +32,44 @@ struct McPriceResponse {
     nlohmann::json toJson() const;
 };
 
+struct McConvergenceRow {
+    int paths;
+    McEstimates estimates;
+};
+
 // {"bs_price", "seed", "rows": [{paths, estimates: {...}}]}
 struct McConvergenceResponse {
-    struct Row {
-        int paths;
-        McEstimates estimates;
-    };
-
     double bsPrice;
     std::uint64_t seed;
-    std::vector<Row> rows;
+    std::vector<McConvergenceRow> rows;
+
+    nlohmann::json toJson() const;
+};
+
+// The prices an Asian estimate is compared with: Hull's lognormal approximation (26.3, 26.4)
+// and the exact geometric average price, the control variate's known mean.
+struct AsianReferences {
+    double lognormalPrice;
+    double geometricPrice;
+};
+
+// {"lognormal_price", "geometric_price", "fixings", "paths", "seed", "estimates": {...}}
+struct AsianPriceResponse {
+    McEstimates estimates;
+    AsianReferences references;
+    int fixings;
+    int paths;
+    std::uint64_t seed;
+
+    nlohmann::json toJson() const;
+};
+
+// {"lognormal_price", "geometric_price", "fixings", "seed", "rows": [{paths, estimates}]}
+struct AsianConvergenceResponse {
+    AsianReferences references;
+    int fixings;
+    std::uint64_t seed;
+    std::vector<McConvergenceRow> rows;
 
     nlohmann::json toJson() const;
 };

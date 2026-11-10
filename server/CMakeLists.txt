@@ -10,6 +10,7 @@ add_library(ope_server_core
     main/src/api/PricingController.cpp
     main/src/api/WebController.cpp
     main/src/config/ServerConfig.cpp
+    main/src/request/AsianRequests.cpp
     main/src/request/GreeksRequest.cpp
     main/src/request/HedgeFrequencyRequest.cpp
     main/src/request/HedgePathRequest.cpp

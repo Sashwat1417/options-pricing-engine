@@ -240,14 +240,22 @@
     <div class="results" id="view-mc" role="tabpanel" hidden>
       <div class="subtabs" id="mc-products" role="tablist" aria-label="Derivative">
         <button type="button" role="tab" data-product="vanilla" aria-selected="true">Vanilla</button>
+        <button type="button" role="tab" data-product="asian" aria-selected="false">Asian</button>
       </div>
       <section class="card" aria-labelledby="mc-title">
-        <h2 id="mc-title">Price a vanilla option by simulation</h2>
-        <p class="hint">Simulates the stock's price at expiry many times in the risk-neutral world
+        <h2 id="mc-title"><span data-for="vanilla">Price a vanilla option by simulation</span><span data-for="asian" hidden>Price an Asian option by simulation</span></h2>
+        <p class="hint" data-for="vanilla">Simulates the stock's price at expiry many times in the risk-neutral world
           (it grows at the risk-free rate r, not its real expected return), averages the
           discounted payoff and reports the standard error (Hull 21.6). A vanilla option also has
           a Black-Scholes price, so this checks the engine, and its variance reduction, before
           it prices options with no formula.</p>
+        <p class="hint" data-for="asian" hidden>An average price option (Hull 26.13): the call pays
+          max(S<sub>ave</sub> − K, 0), where S<sub>ave</sub> is the arithmetic average of the
+          stock's price at each fixing, equally spaced up to expiry (12 = monthly over a year).
+          The payoff depends on the whole path, so there is no exact formula: each path walks
+          the stock through every fixing. Averaging smooths the path, so it costs less than the
+          vanilla option. Hull Example 26.3 (S = K = 50, 1 year, r = 10%, σ = 40%) quotes 6.00
+          for 12 fixings from a lognormal approximation; simulation gives about 5.94.</p>
         <div class="hedge-params">
           <label>Type
             <select id="mc-type">
@@ -255,6 +263,7 @@
               <option value="put">Put</option>
             </select>
           </label>
+          <label data-for="asian" hidden>Fixings <input id="mc-fixings" type="number" step="1" min="1" max="1000" value="12"></label>
           <label>Paths <input id="mc-paths" type="number" step="1" min="2" max="2000000" value="100000"></label>
           <label>Seed <input id="mc-seed" type="number" step="1" min="0" value="42"></label>
         </div>
@@ -266,9 +275,9 @@
 
       <section class="stat-grid" aria-label="Monte Carlo result">
         <div class="card stat">
-          <span class="label">Black-Scholes</span>
-          <span id="mc-bs" class="value small">–</span>
-          <span class="hint">exact formula (Layer 1): the target</span>
+          <span id="mc-ref-label" class="label">Black-Scholes</span>
+          <span id="mc-ref" class="value small">–</span>
+          <span id="mc-ref-hint" class="hint">exact formula (Layer 1): the target</span>
         </div>
         <div class="card stat">
           <span class="label">Plain</span>
@@ -291,7 +300,7 @@
       </section>
       <section class="card" aria-labelledby="mc-vr-title">
         <h2 id="mc-vr-title">Variance reduction (Hull 21.7)</h2>
-        <p class="hint">Same number of simulated prices for every method; only the error changes.
+        <p class="hint" data-for="vanilla">Same number of simulated prices for every method; only the error changes.
           <strong>Antithetic</strong> pairs each draw ε with −ε, so a high price and its mirror
           low price cancel much of each other's noise. <strong>Control variate</strong> also
           tracks the discounted stock price, whose exact average is today's spot S, and removes
@@ -299,6 +308,14 @@
           hedge of β shares. The speedup is how many plain paths one path of the method is worth.
           Both help most for in-the-money options and least far out of the money, where most
           paths pay nothing.</p>
+        <p class="hint" data-for="asian" hidden>Same number of simulated paths for every method;
+          only the error changes. <strong>Control variate</strong> prices the geometric average
+          option on the same paths. Its average is exactly lognormal, so its price has an exact
+          formula, and it moves almost one-for-one with the arithmetic payoff: whatever error it
+          shows on a run is subtracted from the arithmetic estimate. That makes one path worth
+          hundreds of plain ones. <strong>Antithetic</strong> helps less than for a vanilla
+          option, because averaging has already cancelled much of the noise that ε and −ε would
+          cancel.</p>
       </section>
 
       <section class="card" aria-labelledby="mc-conv-title">

@@ -21,4 +21,11 @@ struct McConvergenceRequest {
     static McConvergenceRequest fromJson(const nlohmann::json& body);
 };
 
+// 1,000, 2,000, 5,000 … 1,000,000.
+std::vector<int> defaultPathCounts();
+
+// The optional "paths" array: 1 to 20 integers in [4, McPriceRequest::kMaxPaths].
+// Returns an empty vector when the field is absent.
+std::vector<int> mcPathCounts(const nlohmann::json& body);
+
 }  // namespace ope::server

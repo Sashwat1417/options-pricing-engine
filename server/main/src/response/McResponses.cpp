@@ -1,6 +1,9 @@
 #include "response/McResponses.hpp"
 
+#include <vector>
+
 using nlohmann::json;
+using std::vector;
 
 namespace ope::server {
 
@@ -23,6 +26,14 @@ json byMethod(const McEstimates& e) {
             {"control_variate", estimate(e.controlVariate, plain)}};
 }
 
+json rowsJson(const vector<McConvergenceRow>& rows) {
+    json out = json::array();
+    for (const auto& r : rows) {
+        out.push_back({{"paths", r.paths}, {"estimates", byMethod(r.estimates)}});
+    }
+    return out;
+}
+
 }  // namespace
 
 json McPriceResponse::toJson() const {
@@ -33,11 +44,24 @@ json McPriceResponse::toJson() const {
 }
 
 json McConvergenceResponse::toJson() const {
-    json out_rows = json::array();
-    for (const auto& r : rows) {
-        out_rows.push_back({{"paths", r.paths}, {"estimates", byMethod(r.estimates)}});
-    }
-    return {{"bs_price", bsPrice}, {"seed", seed}, {"rows", out_rows}};
+    return {{"bs_price", bsPrice}, {"seed", seed}, {"rows", rowsJson(rows)}};
+}
+
+json AsianPriceResponse::toJson() const {
+    return {{"lognormal_price", references.lognormalPrice},
+            {"geometric_price", references.geometricPrice},
+            {"fixings", fixings},
+            {"paths", paths},
+            {"seed", seed},
+            {"estimates", byMethod(estimates)}};
+}
+
+json AsianConvergenceResponse::toJson() const {
+    return {{"lognormal_price", references.lognormalPrice},
+            {"geometric_price", references.geometricPrice},
+            {"fixings", fixings},
+            {"seed", seed},
+            {"rows", rowsJson(rows)}};
 }
 
 }  // namespace ope::server

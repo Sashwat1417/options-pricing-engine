@@ -28,25 +28,30 @@ The same rule covers the web UI (`server/web/`, JS): it reads inputs, calls the 
   options with no closed form. *In progress.* Done: GBM path simulator; `mc_price` for
   European calls/puts with standard error and 95% interval (Hull 21.6), checked against
   Black-Scholes; variance reduction by antithetic variables and a control variate (discounted
-  S_T, regression β) (Hull 21.7). Next: Asian, barrier, lookback (Hull Ch 26). Layer 2's goal
-  (pricing what has no formula) is met only once these exist.
+  S_T, regression β) (Hull 21.7); Asian average-price options (Hull 26.13) with the exact
+  geometric Asian as control variate (≈ 300× speedup) and Hull's lognormal approximation,
+  which simulation shows overpricing (≈ 5.94 vs Hull's 6.00 in Example 26.3). Next: barrier,
+  then lookback (Hull Ch 26).
 - **Layer 3 — Delta hedging simulator** (`hedging/`). *Done.* Hedges a sold call along a path;
   reproduces Hull Tables 19.1–19.3; realised vs implied vol (volatility trading); transaction
   costs (Hull 19.10).
 
 ## Where things stand
 - Hull's *Options, Futures, and Other Derivatives* (11th Global Ed.): Chapters 1, 10–15 and
-  19 done, plus 21.6 (Monte Carlo simulation) and 21.7 (variance reduction).
+  19 done, plus 21.6 (Monte Carlo simulation), 21.7 (variance reduction) and 26.13 (Asian
+  options).
 - Roadmap, in order:
-  1. Layer 2 exotics: Asian (geometric Asian as control variate), then barrier, then lookback.
+  1. Layer 2 exotics: barrier (26.9; discrete-monitoring bias), then lookback (optional).
      Read the matching Ch 26 section before each.
-  2. Release v0.6.0 (`develop` has the Monte Carlo pricer and variance reduction unreleased);
+  2. Release v0.6.0 (`develop` has the Monte Carlo pricer, variance reduction and Asian
+     options unreleased);
      add Layer 2 to the atlas and a Layer 2 HLD/LLD page in Confluence.
   3. Portfolio Greeks: many positions across strikes/expiries, Greeks aggregated and
      recomputed as the market moves (see the first domain note). Not in any layer yet.
   4. Wilmott, then the Q_Resume revision, then applying.
 - Built around the layers: `cli/` (`ope` tool), `server/` (`ope-server` REST API + web UI with
-  Pricing, Greeks, Implied vol, Hedging and Monte Carlo tabs), `viz/` (Python charts), Docker,
+  Pricing, Greeks, Implied vol, Hedging and Monte Carlo tabs; Monte Carlo has Vanilla and
+  Asian subtabs), `viz/` (Python charts), Docker,
   Kubernetes manifest, GitHub Actions CI, Render deployment (usually kept suspended; test
   locally).
 - Git flow: `feature/*` → `develop` (squash PR) → `main` (release PR, merge commit, version tag
@@ -75,6 +80,11 @@ The same rule covers the web UI (`server/web/`, JS): it reads inputs, calls the 
   The control-variate β is a regression slope (≈ delta for a call: a static hedge); Hull's
   f_A − f_B + f_B(exact) is the β = 1 case. Both methods help most in the money, ≈ 1× deep
   out of the money (importance-sampling territory).
+- Asian options: the payoff uses the average price along the path, which matches an exposure
+  spread over time (Hull's AUD treasurer). Averaging smooths the path, so the effective vol
+  falls (≈ σ/√3 for continuous averaging) and the option is cheaper. A sum of lognormals is
+  not lognormal, so the arithmetic Asian needs Monte Carlo; the geometric average is exactly
+  lognormal, so its exact price makes a near-perfect control variate.
 
 ## How to work with Sashwat on this
 - Explain the "why" before implementation — he dislikes black-box formulas in code.

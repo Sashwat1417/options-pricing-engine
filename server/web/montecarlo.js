@@ -11,19 +11,42 @@ const MC_METHODS = [
   { key: "control_variate", name: "Control variate", colorVar: "--gain" },
 ];
 
+const fmt4 = (x) => x.toFixed(4);
+
+// `exact`: the reference is the true price, so an interval that misses it is flagged.
+const MC_PRODUCTS = {
+  vanilla: {
+    endpoint: "/api/v1/mc",
+    reference: (d) => d.bs_price,
+    referenceName: "Black-Scholes",
+    referenceHint: () => "exact formula (Layer 1): the target",
+    exact: true,
+  },
+  asian: {
+    endpoint: "/api/v1/mc/asian",
+    reference: (d) => d.lognormal_price,
+    referenceName: "Hull approximation",
+    referenceHint: (d) => `lognormal fit (26.3–26.4), not exact · geometric average option `
+      + `(exact, the control): ${fmt4(d.geometric_price)}`,
+    exact: false,
+  },
+};
+
 function mcParams() {
   return {
     type: $("mc-type").value,
     paths: parseInt($("mc-paths").value, 10),
     seed: parseInt($("mc-seed").value, 10),
+    fixings: parseInt($("mc-fixings").value, 10),
   };
 }
-
-const fmt4 = (x) => x.toFixed(4);
 const speedupText = (s) => (s === null ? "no error left" : `≈ ${s < 10 ? s.toFixed(1) : Math.round(s).toLocaleString("en-US")}× plain paths`);
 
-function showMcPrice(data) {
-  $("mc-bs").textContent = fmt4(data.bs_price);
+function showMcPrice(data, product) {
+  const reference = product.reference(data);
+  $("mc-ref-label").textContent = product.referenceName;
+  $("mc-ref").textContent = fmt4(reference);
+  $("mc-ref-hint").textContent = product.referenceHint(data);
   for (const m of MC_METHODS) {
     const e = data.estimates[m.key];
     $(`mc-${m.key}`).textContent = fmt4(e.price);
@@ -31,11 +54,12 @@ function showMcPrice(data) {
     $(`mc-${m.key}-speedup`).textContent = m.key === "plain"
       ? "the baseline: 1 path = 1 path"
       : `worth ${speedupText(e.speedup)}`;
-    $(`mc-${m.key}`).classList.toggle("loss", !(e.ci_low <= data.bs_price && data.bs_price <= e.ci_high));
+    $(`mc-${m.key}`).classList.toggle("loss",
+      product.exact && !(e.ci_low <= reference && reference <= e.ci_high));
   }
 }
 
-function showConvergence(data) {
+function showConvergence(data, product) {
   const cell = (e) => `${fmt4(e.price)} <span class="hint">± ${fmt4(e.std_error)}</span>`;
   const gain = (e) => (e.speedup === null ? "–" : `${e.speedup.toFixed(1)}×`);
   $("mc-table").querySelector("tbody").innerHTML = data.rows.map((r) => `
@@ -46,12 +70,13 @@ function showConvergence(data) {
       <td>${cell(r.estimates.control_variate)}</td>
       <td>${gain(r.estimates.antithetic)} / ${gain(r.estimates.control_variate)}</td>
     </tr>`).join("")
-    + `<tr><td colspan="5" class="hint">Black-Scholes price: ${fmt4(data.bs_price)} · `
-    + `seed ${data.seed} · each method uses the same number of simulated prices</td></tr>`;
-  drawConvergenceChart(data);
+    + `<tr><td colspan="5" class="hint">${product.referenceName}: ${fmt4(product.reference(data))} · `
+    + `seed ${data.seed}${data.fixings ? ` · ${data.fixings} fixings` : ""} · `
+    + `each method uses the same number of simulated paths</td></tr>`;
+  drawConvergenceChart(data, product);
 }
 
-function drawConvergenceChart(data) {
+function drawConvergenceChart(data, product) {
   const ink = color("--muted");
   const xs = data.rows.map((r) => r.paths);
   const series = (key, field) => data.rows.map((r) => ({ x: r.paths, y: r.estimates[key][field] }));
@@ -67,9 +92,10 @@ function drawConvergenceChart(data) {
         backgroundColor: c, borderWidth: 2, pointRadius: 2.5, pointStyle: "circle" },
     );
   }
+  const reference = product.reference(data);
   datasets.push({
-    label: "Black-Scholes", group: "bs",
-    data: [{ x: xs[0], y: data.bs_price }, { x: xs[xs.length - 1], y: data.bs_price }],
+    label: product.referenceName, group: "reference",
+    data: [{ x: xs[0], y: reference }, { x: xs[xs.length - 1], y: reference }],
     borderColor: color("--payoff"), backgroundColor: color("--payoff"), borderWidth: 1.5,
     borderDash: [6, 4], pointRadius: 0, pointStyle: "line",
   });
@@ -125,34 +151,47 @@ function drawConvergenceChart(data) {
 
 async function refreshMc(m) {
   const p = mcParams();
-  const option = { ...m, type: p.type, seed: p.seed };
+  const key = mcProduct;
+  const product = MC_PRODUCTS[key];
+  const option = { ...m, type: p.type, seed: p.seed, ...(key === "asian" ? { fixings: p.fixings } : {}) };
   try {
     const [price, convergence] = await Promise.all([
-      api("/api/v1/mc/price", { ...option, paths: p.paths }),
-      api("/api/v1/mc/convergence", option),
+      api(`${product.endpoint}/price`, { ...option, paths: p.paths }),
+      api(`${product.endpoint}/convergence`, option),
     ]);
-    showMcPrice(price);
-    showConvergence(convergence);
+    if (key !== mcProduct) return;
+    showMcPrice(price, product);
+    showConvergence(convergence, product);
     showError($("mc-error"), "");
   } catch (e) {
-    for (const id of ["mc-bs", ...MC_METHODS.map((x) => `mc-${x.key}`)]) $(id).textContent = "–";
+    if (key !== mcProduct) return;
+    for (const id of ["mc-ref", ...MC_METHODS.map((x) => `mc-${x.key}`)]) $(id).textContent = "–";
     showError($("mc-error"), e.message);
   }
+}
+
+function selectMcProduct(name) {
+  if (!(name in MC_PRODUCTS)) return;
+  mcProduct = name;
+  document.querySelectorAll("#mc-products button").forEach((b) =>
+    b.setAttribute("aria-selected", String(b.dataset.product === name)));
+  document.querySelectorAll("#view-mc [data-for]").forEach((el) => {
+    el.hidden = el.dataset.for !== name;
+  });
 }
 
 // Called by app.js once its helpers exist.
 function initMonteCarlo() {
   $("mc-type").addEventListener("change", scheduleRefresh);
-  for (const id of ["mc-paths", "mc-seed"]) $(id).addEventListener("input", scheduleRefresh);
+  for (const id of ["mc-paths", "mc-seed", "mc-fixings"]) $(id).addEventListener("input", scheduleRefresh);
   $("mc-new").addEventListener("click", () => {
     $("mc-seed").value = Math.floor(Math.random() * 1e9);
     scheduleRefresh();
   });
   document.querySelectorAll("#mc-products button").forEach((btn) => {
     btn.addEventListener("click", () => {
-      mcProduct = btn.dataset.product;
-      document.querySelectorAll("#mc-products button").forEach((b) =>
-        b.setAttribute("aria-selected", String(b === btn)));
+      selectMcProduct(btn.dataset.product);
+      try { history.replaceState(null, "", `#mc-${mcProduct}`); } catch (e) {}
       scheduleRefresh();
     });
   });

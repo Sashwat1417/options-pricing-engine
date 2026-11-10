@@ -1,3 +1,4 @@
+#include "request/AsianRequests.hpp"
 #include "request/McConvergenceRequest.hpp"
 #include "request/McPriceRequest.hpp"
 
@@ -10,6 +11,9 @@
 
 using nlohmann::json;
 using ope::OptionType;
+using ope::server::AsianConvergenceRequest;
+using ope::server::AsianLimits;
+using ope::server::AsianPriceRequest;
 using ope::server::McConvergenceRequest;
 using ope::server::McPriceRequest;
 using std::invalid_argument;
@@ -37,6 +41,30 @@ string priceError(const json& body) {
 string convergenceError(const json& body) {
     try {
         (void)McConvergenceRequest::fromJson(body);
+    } catch (const invalid_argument& e) {
+        return e.what();
+    }
+    return "";
+}
+
+// Hull Example 26.3 with 12 monthly fixings.
+json hullAsian() {
+    return {{"type", "call"}, {"spot", 50},     {"strike", 50},  {"expiry", 1},  {"rate", 0.1},
+            {"vol", 0.4},     {"fixings", 12}, {"paths", 50000}, {"seed", 42}};
+}
+
+string asianPriceError(const json& body) {
+    try {
+        (void)AsianPriceRequest::fromJson(body);
+    } catch (const invalid_argument& e) {
+        return e.what();
+    }
+    return "";
+}
+
+string asianConvergenceError(const json& body) {
+    try {
+        (void)AsianConvergenceRequest::fromJson(body);
     } catch (const invalid_argument& e) {
         return e.what();
     }
@@ -92,4 +120,56 @@ TEST(McConvergenceRequest, ValidatesPathListAndCapsTotalWork) {
     EXPECT_EQ(convergenceError(body), "");
     body["paths"] = {1000000, 1000000, 4};
     EXPECT_NE(convergenceError(body).find("total paths"), string::npos);
+}
+
+TEST(AsianPriceRequest, ParsesFixingsPathsAndSeed) {
+    const auto r = AsianPriceRequest::fromJson(hullAsian());
+    EXPECT_EQ(r.option.type, OptionType::Call);
+    EXPECT_DOUBLE_EQ(r.option.volatility, 0.4);
+    EXPECT_EQ(r.fixings, 12);
+    EXPECT_EQ(r.paths, 50000);
+    EXPECT_EQ(r.seed, 42u);
+}
+
+TEST(AsianPriceRequest, RejectsBadFixingsAndCapsPathSteps) {
+    json body = hullAsian();
+    body.erase("fixings");
+    EXPECT_EQ(asianPriceError(body), "missing field: fixings");
+
+    for (const json& bad : {json(0), json(AsianLimits::kMaxFixings + 1), json(2.5)}) {
+        body = hullAsian();
+        body["fixings"] = bad;
+        EXPECT_NE(asianPriceError(body), "") << bad;
+    }
+
+    body = hullAsian();
+    body["fixings"] = 1000;
+    body["paths"] = 10000;
+    EXPECT_EQ(asianPriceError(body), "");
+    body["paths"] = 10001;
+    EXPECT_NE(asianPriceError(body).find("paths × fixings"), string::npos);
+}
+
+TEST(AsianConvergenceRequest, DefaultPathCountsStopAtTheWorkLimit) {
+    json body = hullAsian();
+    body.erase("paths");
+    EXPECT_EQ(AsianConvergenceRequest::fromJson(body).paths.back(), 200000);
+
+    body["fixings"] = 252;
+    EXPECT_EQ(AsianConvergenceRequest::fromJson(body).paths.back(), 20000);
+
+    body["fixings"] = AsianLimits::kMaxFixings;
+    EXPECT_EQ(AsianConvergenceRequest::fromJson(body).paths,
+              (vector<int>{1000, 2000, 5000}));
+}
+
+TEST(AsianConvergenceRequest, ExplicitPathCountsMustFitTheWorkLimit) {
+    json body = hullAsian();
+    body["paths"] = {1000, 4000};
+    EXPECT_EQ(AsianConvergenceRequest::fromJson(body).paths, (vector<int>{1000, 4000}));
+
+    body["paths"] = {500000, 500000};
+    EXPECT_NE(asianConvergenceError(body).find("paths × fixings"), string::npos);
+    body["paths"] = {3};
+    EXPECT_NE(asianConvergenceError(body), "");
 }

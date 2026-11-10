@@ -9,6 +9,8 @@
 using nlohmann::json;
 using ope::OptionInputs;
 using ope::OptionType;
+using ope::server::AsianConvergenceRequest;
+using ope::server::AsianPriceRequest;
 using ope::server::McConvergenceRequest;
 using ope::server::McPriceRequest;
 using ope::server::MonteCarloService;
@@ -18,6 +20,9 @@ namespace {
 
 const OptionInputs kHullCall{OptionType::Call, 42.0, 40.0, 0.5, 0.10, 0.20};
 const MonteCarloService service{};
+
+// Hull Example 26.3: S=50, K=50, T=1, r=10%, σ=40%.
+const OptionInputs kHullAsianCall{OptionType::Call, 50.0, 50.0, 1.0, 0.10, 0.40};
 
 }  // namespace
 
@@ -78,4 +83,28 @@ TEST(MonteCarloService, LibraryRejectionsSurfaceAsInvalidArgument) {
     OptionInputs expired = kHullCall;
     expired.time_to_expiry = 0.0;
     EXPECT_THROW((void)service.price({expired, 1000, 1}), invalid_argument);
+}
+
+TEST(MonteCarloService, AsianPriceReportsBothReferencesAndEveryMethod) {
+    const json out = service.asianPrice({kHullAsianCall, 12, 100000, 42}).toJson();
+    EXPECT_NEAR(out.at("lognormal_price").get<double>(), 6.00, 0.005);
+    EXPECT_LT(out.at("geometric_price").get<double>(), out.at("lognormal_price").get<double>());
+    EXPECT_EQ(out.at("fixings").get<int>(), 12);
+    EXPECT_EQ(out.at("paths").get<int>(), 100000);
+    const double cv = out.at("estimates").at("control_variate").at("price").get<double>();
+    for (const char* method : {"plain", "antithetic"}) {
+        const json& e = out.at("estimates").at(method);
+        EXPECT_NEAR(e.at("price").get<double>(), cv, 4.0 * e.at("std_error").get<double>())
+            << method;
+    }
+    EXPECT_GT(out.at("estimates").at("control_variate").at("speedup").get<double>(), 100.0);
+}
+
+TEST(MonteCarloService, AsianConvergenceHasOneRowPerPathCount) {
+    const AsianConvergenceRequest request{kHullAsianCall, 12, 7, {1000, 10000}};
+    const json out = service.asianConvergence(request).toJson();
+    ASSERT_EQ(out.at("rows").size(), 2u);
+    EXPECT_EQ(out.at("rows")[1].at("paths").get<int>(), 10000);
+    EXPECT_EQ(out.at("fixings").get<int>(), 12);
+    EXPECT_TRUE(out.contains("geometric_price"));
 }

@@ -6,7 +6,7 @@
 
 namespace ope::server {
 
-// POST /api/v1/mc/{price,convergence}.
+// POST /api/v1/mc/{price,convergence} and /api/v1/mc/asian/{price,convergence}.
 // Bad input -> 400 {"error": ...}, unexpected failure -> 500.
 class MonteCarloController {
 public:
